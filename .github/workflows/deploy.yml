@@ -40,10 +40,11 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      # Astro 5：base 只影响 URL 前缀，构建产物在 dist/ 根目录，无 dist/blog 子目录
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist/blog
+          path: ./dist
 
   deploy:
     environment:
