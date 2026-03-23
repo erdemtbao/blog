@@ -53,20 +53,19 @@ export const navBarConfig: NavBarConfig = {
 };
 
 export const profileConfig: ProfileConfig = {
-	avatar: "assets/images/demo-avatar.png", // Relative to the /src directory. Relative to the /public directory if it starts with '/'
+	avatar: "assets/images/man_logo.png", // Relative to the /src directory. Relative to the /public directory if it starts with '/'
 	name: "Erddemt Bao",
-	bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+	bio: "Believe you can and you’re halfway there.",
 	links: [
-		{
-			name: "Email",
-			icon: "fa6-solid:envelope",
-			url: "mailto:baoerdemt366@gmail.com",
-		},
-
 		{
 			name: "GitHub",
 			icon: "fa6-brands:github",
 			url: "https://erdemtbao.github.io",
+		},
+		{
+			name: "Email",
+			icon: "fa6-solid:envelope",
+			url: "mailto:baoerdemt366@gmail.com",
 		},
 	],
 };
