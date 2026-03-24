@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Erdemt's Blog — README</title>
+	<style>
+		:root {
+			--bg: #0f1419;
+			--card: #1a2332;
+			--text: #e7e9ea;
+			--muted: #8b98a5;
+			--accent: #6366f1;
+			--accent-dim: #4f46e5;
+		}
+		@media (prefers-color-scheme: light) {
+			:root {
+				--bg: #f7f8fa;
+				--card: #fff;
+				--text: #0f1419;
+				--muted: #536471;
+				--accent: #4f46e5;
+				--accent-dim: #4338ca;
+			}
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			min-height: 100vh;
+			font-family: system-ui, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+			background: var(--bg);
+			color: var(--text);
+			line-height: 1.6;
+		}
+		.wrap {
+			max-width: 44rem;
+			margin: 0 auto;
+			padding: 1.5rem 1.25rem 3rem;
+		}
+		h1 {
+			font-size: 1.75rem;
+			margin: 0 0 1rem;
+			font-weight: 700;
+		}
+		.lang-bar {
+			display: flex;
+			gap: 0.5rem;
+			margin-bottom: 1.5rem;
+			flex-wrap: wrap;
+			align-items: center;
+		}
+		.lang-bar span {
+			color: var(--muted);
+			font-size: 0.875rem;
+			margin-right: 0.25rem;
+		}
+		.lang-bar button {
+			font: inherit;
+			font-weight: 600;
+			padding: 0.5rem 1rem;
+			border-radius: 0.5rem;
+			border: 2px solid var(--muted);
+			background: transparent;
+			color: var(--text);
+			cursor: pointer;
+			transition: background 0.15s, border-color 0.15s, color 0.15s;
+		}
+		.lang-bar button:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+		}
+		.lang-bar button[aria-pressed="true"] {
+			background: var(--accent);
+			border-color: var(--accent-dim);
+			color: #fff;
+		}
+		.panel {
+			display: none;
+			background: var(--card);
+			padding: 1.25rem 1.5rem;
+			border-radius: 0.75rem;
+			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+		}
+		.panel.active {
+			display: block;
+		}
+		.panel h2 {
+			font-size: 1.125rem;
+			margin: 1.25rem 0 0.5rem;
+			border-bottom: 1px solid var(--muted);
+			padding-bottom: 0.35rem;
+			opacity: 0.9;
+		}
+		.panel h2:first-of-type {
+			margin-top: 0;
+		}
+		.panel a {
+			color: var(--accent);
+		}
+		.panel a:hover {
+			text-decoration: underline;
+		}
+		.panel pre {
+			background: rgba(0, 0, 0, 0.25);
+			padding: 1rem;
+			border-radius: 0.5rem;
+			overflow-x: auto;
+			font-size: 0.8125rem;
+			line-height: 1.45;
+		}
+		@media (prefers-color-scheme: light) {
+			.panel pre {
+				background: #f1f3f4;
+			}
+		}
+		.panel ul {
+			margin: 0.5rem 0;
+			padding-left: 1.25rem;
+		}
+		.note {
+			font-size: 0.8125rem;
+			color: var(--muted);
+			margin-top: 2rem;
+			padding-top: 1rem;
+			border-top: 1px solid var(--muted);
+		}
+		.back {
+			margin-top: 1rem;
+		}
+	</style>
+</head>
+<body>
+	<div class="wrap">
+		<h1>Erdemt's Blog</h1>
+		<div class="lang-bar" role="group" aria-label="Language">
+			<span id="lang-label">Language / 语言</span>
+			<button type="button" id="btn-en" aria-pressed="true">English</button>
+			<button type="button" id="btn-zh" aria-pressed="false">中文</button>
+		</div>
+
+		<article id="panel-en" class="panel active" lang="en" aria-labelledby="btn-en">
+			<p><strong>Personal technical blog</strong> by <strong>Erdemt Bao</strong>, focused on <strong>robot learning</strong>, research notes, tools, and longer-form writing.</p>
+			<p><strong>Live site:</strong> <a href="https://erdemtbao.github.io/blog/">https://erdemtbao.github.io/blog/</a></p>
+			<p>Built with <a href="https://astro.build/">Astro</a> and deployed to GitHub Pages via GitHub Actions (<code>base: /blog</code>).</p>
+
+			<h2>Tech stack</h2>
+			<ul>
+				<li><a href="https://astro.build/">Astro</a> + <a href="https://tailwindcss.com/">Tailwind CSS</a></li>
+				<li>Theme and features from the <strong>Fuwari</strong> template (light/dark mode, search, RSS, extended Markdown, etc.)</li>
+				<li>Search: <a href="https://pagefind.app/">Pagefind</a></li>
+			</ul>
+
+			<h2>Local development</h2>
+			<p>Requires <strong>Node.js ≥ 20</strong> and <strong>pnpm ≥ 9</strong>.</p>
+			<pre><code>pnpm install
+pnpm dev          # http://localhost:4321
+pnpm build        # output to ./dist/
+pnpm preview      # preview production build</code></pre>
+			<p>Edit <a href="https://github.com/erdemtbao/blog/blob/main/src/config.ts"><code>src/config.ts</code></a> for site title, nav, and profile. New posts: <code>pnpm new-post &lt;filename&gt;</code> → <code>src/content/posts/</code>.</p>
+
+			<h2>Post frontmatter example</h2>
+			<pre><code>---
+title: My Post
+published: 2024-01-01
+description: Short summary
+image: ./cover.jpg
+tags: [Tag1, Tag2]
+category: Notes
+draft: false
+---</code></pre>
+
+			<h2>Acknowledgments</h2>
+			<p>This site is based on the open-source <a href="https://github.com/saicaca/fuwari">Fuwari</a> template. Thanks to <a href="https://github.com/saicaca">saicaca</a> and all contributors. For the latest template docs and updates, see the upstream repository.</p>
+
+			<h2>License</h2>
+			<p>This project follows Fuwari’s <strong>MIT License</strong>; see the license file in the repository.</p>
+		</article>
+
+		<article id="panel-zh" class="panel" lang="zh-CN" aria-labelledby="btn-zh">
+			<p><strong>个人技术博客</strong> — 由 <strong>Erdemt Bao</strong> 维护，主要记录与 <strong>机器人学习（Robot Learning）</strong>、科研笔记、工具与长文相关的内容。</p>
+			<p><strong>在线站点：</strong> <a href="https://erdemtbao.github.io/blog/">https://erdemtbao.github.io/blog/</a></p>
+			<p>本仓库基于静态站点生成器 <a href="https://astro.build/">Astro</a> 构建，通过 GitHub Actions 部署至 GitHub Pages（<code>base: /blog</code>）。</p>
+
+			<h2>技术栈</h2>
+			<ul>
+				<li><a href="https://astro.build/">Astro</a> + <a href="https://tailwindcss.com/">Tailwind CSS</a></li>
+				<li>主题与功能源自 <strong>Fuwari</strong> 模板（亮色 / 暗色、搜索、RSS、Markdown 扩展语法等）</li>
+				<li>搜索：<a href="https://pagefind.app/">Pagefind</a></li>
+			</ul>
+
+			<h2>本地开发</h2>
+			<p>环境要求：<strong>Node.js ≥ 20</strong>、<strong>pnpm ≥ 9</strong>。</p>
+			<pre><code>pnpm install
+pnpm dev          # http://localhost:4321
+pnpm build        # 输出到 ./dist/
+pnpm preview      # 本地预览构建结果</code></pre>
+			<p>站点标题、导航、侧栏等请在 <a href="https://github.com/erdemtbao/blog/blob/main/src/config.ts"><code>src/config.ts</code></a> 中修改。新文章可使用 <code>pnpm new-post &lt;filename&gt;</code>，正文位于 <code>src/content/posts/</code>。</p>
+
+			<h2>文章 Frontmatter 示例</h2>
+			<pre><code>---
+title: My Post
+published: 2024-01-01
+description: Short summary
+image: ./cover.jpg
+tags: [Tag1, Tag2]
+category: Notes
+draft: false
+---</code></pre>
+
+			<h2>致谢</h2>
+			<p>本站使用开源博客模板 <a href="https://github.com/saicaca/fuwari">Fuwari</a>，感谢作者 <a href="https://github.com/saicaca">saicaca</a> 及所有贡献者的设计与维护。若你也想搭建类似站点，可从上游仓库获取最新文档与更新。</p>
+
+			<h2>许可证</h2>
+			<p>项目沿用 Fuwari 的 <strong>MIT License</strong>，详见仓库内许可文件。</p>
+		</article>
+
+		<p class="note" id="note-en">
+			GitHub’s <code>README.md</code> cannot run JavaScript, so this interactive page is shipped with the site at
+			<code>/readme-bilingual.html</code>. Your language choice is saved in this browser (<code>localStorage</code>).
+		</p>
+		<p class="note" id="note-zh" hidden>
+			GitHub 上的 <code>README.md</code> 无法执行 JavaScript，因此提供本页（站点路径 <code>/readme-bilingual.html</code>）实现中英文切换。所选语言会保存在本浏览器（<code>localStorage</code>）。
+		</p>
+
+		<p class="back"><a href="https://erdemtbao.github.io/blog/">← Back to blog / 返回博客</a></p>
+	</div>
+
+	<script>
+		(function () {
+			const KEY = "erdemt-blog-readme-lang";
+			const panelEn = document.getElementById("panel-en");
+			const panelZh = document.getElementById("panel-zh");
+			const btnEn = document.getElementById("btn-en");
+			const btnZh = document.getElementById("btn-zh");
+			const noteEn = document.getElementById("note-en");
+			const noteZh = document.getElementById("note-zh");
+
+			function setLang(lang) {
+				const isEn = lang === "en";
+				panelEn.classList.toggle("active", isEn);
+				panelZh.classList.toggle("active", !isEn);
+				btnEn.setAttribute("aria-pressed", isEn ? "true" : "false");
+				btnZh.setAttribute("aria-pressed", isEn ? "false" : "true");
+				document.documentElement.lang = isEn ? "en" : "zh-CN";
+				noteEn.hidden = !isEn;
+				noteZh.hidden = isEn;
+				try {
+					localStorage.setItem(KEY, lang);
+				} catch (_) {}
+				const url = new URL(window.location.href);
+				url.searchParams.set("lang", lang);
+				window.history.replaceState({}, "", url);
+			}
+
+			function init() {
+				const params = new URLSearchParams(window.location.search);
+				let lang = params.get("lang");
+				if (lang !== "en" && lang !== "zh") {
+					try {
+						lang = localStorage.getItem(KEY);
+					} catch (_) {
+						lang = null;
+					}
+				}
+				if (lang !== "en" && lang !== "zh") {
+					lang = navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
+				}
+				setLang(lang);
+			}
+
+			btnEn.addEventListener("click", function () {
+				setLang("en");
+			});
+			btnZh.addEventListener("click", function () {
+				setLang("zh");
+			});
+
+			init();
+		})();
+	</script>
+</body>
+</html>
