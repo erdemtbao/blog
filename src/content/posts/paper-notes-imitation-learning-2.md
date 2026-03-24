@@ -1,6 +1,6 @@
 ---
 title: "Paper Notes: Imitation Learning (2)"
-published: 2026-03-20
+published: 2026-03-08
 description: Continued reading notes on imitation learning—summaries and takeaways.
 image: ''
 tags: [Paper Notes, Imitation Learning]

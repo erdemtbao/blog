@@ -1,6 +1,6 @@
 ---
 title: "Paper Notes: Reinforcement Learning (1)"
-published: 2026-03-23
+published: 2026-03-01
 description: Reading notes on reinforcement learning papers—summaries and takeaways.
 image: ''
 tags: [Paper Notes, Reinforcement Learning]
