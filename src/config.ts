@@ -47,7 +47,7 @@ export const navBarConfig: NavBarConfig = {
 		LinkPreset.Archive,
 		{ name: "Tool", url: "/tool/" },
 		{ name: "Paper Notes", url: "/paper-notes/" },
-		{ name: "AI Debates", url: "/ai-debates/" },
+		{ name: "Curiosities", url: "/curiosities/" },
 		LinkPreset.About,
 	],
 };
