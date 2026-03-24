@@ -11,6 +11,13 @@ import {
 import { onMount } from "svelte";
 import type { LIGHT_DARK_MODE } from "@/types/config.ts";
 
+// Accept Astro client directives (client:load, client:only) for type compatibility
+interface Props {
+	"client:load"?: boolean;
+	"client:only"?: string;
+}
+let {} = $props<Props>();
+
 const seq: LIGHT_DARK_MODE[] = [LIGHT_MODE, DARK_MODE, AUTO_MODE];
 let mode: LIGHT_DARK_MODE = $state(AUTO_MODE);
 
