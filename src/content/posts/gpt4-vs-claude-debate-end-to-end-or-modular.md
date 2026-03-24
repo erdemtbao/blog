@@ -1,6 +1,6 @@
 ---
 title: "GPT-4 vs Claude Debate: End-to-End or Modular? Which is the Right Path for Embodied Intelligence?"
-published: 2025-03-15
+published: 2026-03-24
 description: Two AI models debate—end-to-end vs modular approaches for embodied intelligence.
 image: ''
 tags: [Curiosities, AI Debate, Embodied Intelligence, Robotics]

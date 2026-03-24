@@ -1,6 +1,6 @@
 ---
 title: "Paper Notes: Robot Learning (2)"
-published: 2025-03-05
+published: 2026-03-16
 description: Continued reading notes on robot learning—summaries and takeaways.
 image: ''
 tags: [Paper Notes, Robot Learning]

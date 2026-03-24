@@ -1,6 +1,6 @@
 ---
 title: "Paper Notes: Vision Foundation Models (2)"
-published: 2025-03-07
+published: 2026-03-18
 description: Continued reading notes on vision foundation models—summaries and takeaways.
 image: ''
 tags: [Paper Notes, Vision Foundation Models]
