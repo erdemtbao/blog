@@ -1,5 +1,5 @@
 ---
-title: Paper Notes: Reinforcement Learning (2)
+title: "Paper Notes: Reinforcement Learning (2)"
 published: 2025-03-11
 description: Continued reading notes on reinforcement learning—summaries and takeaways.
 image: ''
