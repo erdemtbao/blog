@@ -31,7 +31,7 @@ export function applyDomI18n(): void {
 
 	document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((el) => {
 		const key = el.getAttribute("data-i18n");
-		if (key && Object.prototype.hasOwnProperty.call(translation, key)) {
+		if (key && Object.hasOwn(translation, key)) {
 			el.textContent = translation[key as keyof typeof translation];
 		}
 	});
