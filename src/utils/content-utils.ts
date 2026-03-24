@@ -112,3 +112,21 @@ export async function getCategoryList(): Promise<Category[]> {
 	}
 	return ret;
 }
+
+export async function getPostsByCategory(
+	category: string,
+): Promise<CollectionEntry<"posts">[]> {
+	const allPosts = await getCollection("posts", ({ data }) => {
+		const isPublished = import.meta.env.PROD ? data.draft !== true : true;
+		const matchesCategory =
+			data.category &&
+			String(data.category).trim().toLowerCase() ===
+				category.trim().toLowerCase();
+		return isPublished && !!matchesCategory;
+	});
+	return allPosts.sort((a, b) => {
+		const dateA = new Date(a.data.published);
+		const dateB = new Date(b.data.published);
+		return dateA > dateB ? -1 : 1;
+	});
+}
