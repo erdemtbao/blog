@@ -1,10 +1,11 @@
 ---
+# Fuwari/Astro 模板样例：已禁用（生产构建不收录）
 title: Markdown Example
 published: 2025-03-01
 description: A simple example of a Markdown blog post.
 tags: [Markdown, Blogging, Demo]
 category: Examples
-draft: false
+draft: true
 ---
 
 # An h1 header

@@ -1,10 +1,11 @@
 ---
+# Fuwari/Astro 模板样例：已禁用（生产构建不收录）
 title: Expressive Code Example
 published: 2025-03-05
 description: How code blocks look in Markdown using Expressive Code.
 tags: [Markdown, Blogging, Demo]
 category: Examples
-draft: false
+draft: true
 ---
 
 Here, we'll explore how code blocks look using [Expressive Code](https://expressive-code.com/). The provided examples are based on the official documentation, which you can refer to for further details.

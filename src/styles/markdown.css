@@ -117,5 +117,269 @@
         overflow-x: auto;
         margin: 1em 0;
     }
+
+    /* 论文笔记：每篇算法一块圆角卡片（配合 ::::paper{tone="…"}，与 :::note 嵌套时用四个冒号） */
+    .paper-note-card {
+        @apply rounded-2xl border border-black/10 dark:border-white/15 px-5 py-4 md:px-6 md:py-5 my-6;
+        @apply bg-gradient-to-br from-black/[0.05] to-black/[0.02] dark:from-white/[0.07] dark:to-white/[0.03];
+    }
+
+    .paper-note-card > h2:first-child,
+    .paper-note-card > section:first-child > h2:first-child {
+        @apply mt-0 pt-0;
+    }
+
+    .paper-note-card[data-paper-tone="act"] {
+        @apply border-l-[3px] border-l-amber-500/80 dark:border-l-amber-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="dp"] {
+        @apply border-l-[3px] border-l-sky-500/80 dark:border-l-sky-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="dp3"] {
+        @apply border-l-[3px] border-l-violet-500/80 dark:border-l-violet-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="octo"] {
+        @apply border-l-[3px] border-l-teal-500/80 dark:border-l-teal-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="openvla"] {
+        @apply border-l-[3px] border-l-rose-500/80 dark:border-l-rose-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="rdt"] {
+        @apply border-l-[3px] border-l-orange-500/80 dark:border-l-orange-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="rt1"] {
+        @apply border-l-[3px] border-l-cyan-500/80 dark:border-l-cyan-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="rt2"] {
+        @apply border-l-[3px] border-l-indigo-500/80 dark:border-l-indigo-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="acot"] {
+        @apply border-l-[3px] border-l-fuchsia-500/80 dark:border-l-fuchsia-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="hirobot"] {
+        @apply border-l-[3px] border-l-lime-500/80 dark:border-l-lime-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="roboclaw"] {
+        @apply border-l-[3px] border-l-stone-500/80 dark:border-l-stone-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="tinyvla"] {
+        @apply border-l-[3px] border-l-emerald-500/80 dark:border-l-emerald-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="vlaadapter"] {
+        @apply border-l-[3px] border-l-pink-500/80 dark:border-l-pink-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="worldvla"] {
+        @apply border-l-[3px] border-l-blue-500/80 dark:border-l-blue-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="pi0"] {
+        @apply border-l-[3px] border-l-green-600/80 dark:border-l-green-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="pi0fast"] {
+        @apply border-l-[3px] border-l-green-500/80 dark:border-l-green-300/70;
+    }
+
+    .paper-note-card[data-paper-tone="pi05"] {
+        @apply border-l-[3px] border-l-lime-600/80 dark:border-l-lime-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="pi06"] {
+        @apply border-l-[3px] border-l-yellow-600/80 dark:border-l-yellow-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="copa"] {
+        @apply border-l-[3px] border-l-cyan-600/80 dark:border-l-cyan-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="rekep"] {
+        @apply border-l-[3px] border-l-teal-600/80 dark:border-l-teal-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="voxposer"] {
+        @apply border-l-[3px] border-l-slate-500/80 dark:border-l-slate-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="clip"] {
+        @apply border-l-[3px] border-l-fuchsia-600/80 dark:border-l-fuchsia-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="dinov2"] {
+        @apply border-l-[3px] border-l-violet-600/80 dark:border-l-violet-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="dinov3"] {
+        @apply border-l-[3px] border-l-purple-600/80 dark:border-l-purple-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="foundationpose"] {
+        @apply border-l-[3px] border-l-red-600/80 dark:border-l-red-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="internvl"] {
+        @apply border-l-[3px] border-l-blue-600/80 dark:border-l-blue-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="llava"] {
+        @apply border-l-[3px] border-l-indigo-600/80 dark:border-l-indigo-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="qwenvl"] {
+        @apply border-l-[3px] border-l-sky-600/80 dark:border-l-sky-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="sam3"] {
+        @apply border-l-[3px] border-l-green-600/80 dark:border-l-green-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="sam3d"] {
+        @apply border-l-[3px] border-l-emerald-600/80 dark:border-l-emerald-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="siglip"] {
+        @apply border-l-[3px] border-l-amber-600/80 dark:border-l-amber-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="diffusion"] {
+        @apply border-l-[3px] border-l-pink-500/80 dark:border-l-pink-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="dit"] {
+        @apply border-l-[3px] border-l-rose-500/80 dark:border-l-rose-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="dt"] {
+        @apply border-l-[3px] border-l-orange-500/80 dark:border-l-orange-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="flow"] {
+        @apply border-l-[3px] border-l-cyan-500/80 dark:border-l-cyan-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="nfs"] {
+        @apply border-l-[3px] border-l-lime-500/80 dark:border-l-lime-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="transformer"] {
+        @apply border-l-[3px] border-l-yellow-500/80 dark:border-l-yellow-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="vae"] {
+        @apply border-l-[3px] border-l-stone-500/80 dark:border-l-stone-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="vit"] {
+        @apply border-l-[3px] border-l-blue-500/80 dark:border-l-blue-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="mdp"] {
+        @apply border-l-[3px] border-l-slate-500/80 dark:border-l-slate-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="pomdp"] {
+        @apply border-l-[3px] border-l-zinc-500/80 dark:border-l-zinc-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="mc"] {
+        @apply border-l-[3px] border-l-neutral-500/80 dark:border-l-neutral-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="td"] {
+        @apply border-l-[3px] border-l-stone-600/80 dark:border-l-stone-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="qlearning"] {
+        @apply border-l-[3px] border-l-amber-500/80 dark:border-l-amber-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="policygrad"] {
+        @apply border-l-[3px] border-l-orange-500/80 dark:border-l-orange-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="ddpg"] {
+        @apply border-l-[3px] border-l-red-500/80 dark:border-l-red-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="dqn"] {
+        @apply border-l-[3px] border-l-rose-500/80 dark:border-l-rose-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="ppo"] {
+        @apply border-l-[3px] border-l-pink-500/80 dark:border-l-pink-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="sac"] {
+        @apply border-l-[3px] border-l-fuchsia-500/80 dark:border-l-fuchsia-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="td3"] {
+        @apply border-l-[3px] border-l-purple-500/80 dark:border-l-purple-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="bc"] {
+        @apply border-l-[3px] border-l-violet-500/80 dark:border-l-violet-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="cql"] {
+        @apply border-l-[3px] border-l-indigo-500/80 dark:border-l-indigo-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="iql"] {
+        @apply border-l-[3px] border-l-blue-600/80 dark:border-l-blue-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="qrl"] {
+        @apply border-l-[3px] border-l-sky-500/80 dark:border-l-sky-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="dpo"] {
+        @apply border-l-[3px] border-l-cyan-500/80 dark:border-l-cyan-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="grpo"] {
+        @apply border-l-[3px] border-l-teal-500/80 dark:border-l-teal-400/70;
+    }
+
+    .paper-note-card[data-paper-tone="rlt"] {
+        @apply border-l-[3px] border-l-emerald-500/80 dark:border-l-emerald-400/70;
+    }
+
+    /* 卡片下方 BibTeX：<details> 内用 <pre><code>（Markdown 代码块在 details 里常无法解析） */
+    .paper-bibtex-fold {
+        @apply my-4 rounded-xl border border-black/10 dark:border-white/15 overflow-hidden text-left;
+    }
+
+    .paper-bibtex-fold summary {
+        @apply cursor-pointer select-none list-none px-4 py-2.5 text-sm font-medium;
+        @apply bg-black/[0.04] dark:bg-white/[0.06] text-black/80 dark:text-white/85;
+    }
+
+    .paper-bibtex-fold summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .paper-bibtex-fold pre {
+        margin: 0;
+        @apply border-0 rounded-none bg-[var(--codeblock-bg)] p-4 text-sm leading-relaxed overflow-x-auto;
+        font-family: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+    }
+
+    .paper-bibtex-fold pre code {
+        @apply bg-transparent p-0 text-[var(--inline-code-color)] whitespace-pre;
+        font-size: inherit;
+    }
     
 }

@@ -1,10 +1,11 @@
 ---
+# Fuwari/Astro 模板样例：已禁用（生产构建不收录）
 title: Include Video in the Posts
 published: 2025-03-02
 description: This post demonstrates how to include embedded video in a blog post.
 tags: [Example, Video]
 category: Examples
-draft: false
+draft: true
 ---
 
 Just copy the embed code from YouTube or other platforms, and paste it in the markdown file.

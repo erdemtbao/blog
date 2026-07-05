@@ -1,4 +1,5 @@
 ---
+# Fuwari/Astro 模板样例：已禁用（生产构建不收录）
 title: Markdown Extended Features
 published: 2025-03-03
 updated: 2024-11-29
@@ -6,7 +7,7 @@ description: 'Read more about Markdown features in Fuwari'
 image: ''
 tags: [Demo, Example, Markdown, Fuwari]
 category: 'Examples'
-draft: false 
+draft: true
 ---
 
 ## GitHub Repository Cards
