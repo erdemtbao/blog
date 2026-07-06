@@ -1,63 +1,61 @@
 ---
 title: "Paper Notes: Reinforcement Learning (1)"
-published: 2026-03-01
-description: Reading notes—MDP/POMDP, MC & TD, Q-learning, policy gradient, DDPG/DQN/PPO/SAC/TD3, offline RL (CQL/IQL/BC), quantile Q, DPO/GRPO/RLT.
+published: 2026-03-12
+description: 强化学习的形式化基础精读——MDP、POMDP、Monte Carlo、Temporal Difference、Q-learning、Policy Gradient。从序贯决策的形式语言到无模型价值/策略学习的三条主线。
 image: ''
 tags: [Paper Notes, Reinforcement Learning]
 category: Paper Notes
 draft: false
 ---
 
-强化学习阅读笔记，对应本地资料目录 `assets/paper_node/Reinforcement_Learning_1/`（线上请同步到 `public/paper-node/Reinforcement_Learning_1/`）。**排序**：从形式化基础 → 表格型方法 → 深度策略/价值 → 离线 RL → 分位/分布式价值 → **偏好与 LLM 后训练（DPO / GRPO 等）**。版式与 [Robot Learning (1)](/blog/posts/paper-notes-robot-learning-1/) 一致：**圆角卡片**内为简称、题名、机构、会议/年份、一句话、材料链接；**卡片外**为 BibTeX 折叠与个人笔记。`::::paper{tone="…"} … ::::` 须四个冒号以嵌套 `:::note`。
+## Overview
 
-:::tip[PDF / 图片放哪？]
-`/blog/paper-node/Reinforcement_Learning_1/<简称>/`；文中链接示例：`/blog/paper-node/Reinforcement_Learning_1/MDP/xxx.pdf`。
-:::
+本篇是强化学习阅读笔记的第一篇，聚焦**形式化基础**：把「智能体在环境中通过试错最大化长期回报」这件事，用数学语言精确地写下来，并给出最基础的求解思路。第二篇 [Reinforcement Learning (2)](/blog/posts/paper-notes-reinforcement-learning-2/) 才进入 DQN、PPO、SAC、离线 RL 与 LLM 后训练等深度算法——那些算法的每一个符号，都建立在这一篇的六个概念之上。
 
-## 目录
+六个主题分成两组：
 
-| 简称 | 说明 | 跳转 |
-|:---:|:---|:---:|
-| MDP | 马尔可夫决策过程 | [↓](#mdp) |
-| POMDP | 部分可观测 MDP | [↓](#pomdp) |
-| MC | 蒙特卡洛方法 | [↓](#mc) |
-| TD | 时序差分 | [↓](#td) |
-| Q-learning | 离策略表格型 Q | [↓](#q-learning) |
-| Policy gradient | 策略梯度 / REINFORCE | [↓](#policy-gradient) |
-| DDPG | 深度确定性策略梯度 | [↓](#ddpg) |
-| DQN | 深度 Q 网络 | [↓](#dqn) |
-| PPO | 近端策略优化 | [↓](#ppo) |
-| SAC | 软演员–评论家 | [↓](#sac) |
-| TD3 | 双延迟 DDPG | [↓](#td3) |
-| CQL | 保守 Q 学习（离线） | [↓](#cql) |
-| IQL | 隐式 Q 学习（离线） | [↓](#iql) |
-| BC | 行为克隆 | [↓](#bc) |
-| QRL | 分位 / 分布式 Q（QR-DQN 代表） | [↓](#qrl) |
-| DPO | 直接偏好优化 | [↓](#dpo) |
-| GRPO | 组相对策略优化 | [↓](#grpo) |
-| RLT | （待绑定具体文献） | [↓](#rlt) |
+- **问题的形式化** — [MDP](#mdp)（完全可观测的序贯决策语言）→ [POMDP](#pomdp)（观测有噪、需在**信念状态**上决策）。它们定义「问题是什么」。
+- **求解的思路** — [MC](#mc)（用完整回合的回报估值）、[TD](#td)（用**自举**在线更新）、[Q-learning](#q-learning)（离策略学最优 Q）、[Policy Gradient](#policy-gradient)（直接对策略求回报梯度）。它们定义「怎么学」。
+
+一条主线：**当环境模型（转移与奖励）未知时，如何仅凭采样的经验，估计价值、改进策略、并保证收敛。** MC 用完整回报（无偏、高方差），TD 用自举（有偏、低方差、可在线），二者的张力贯穿整个 RL；Q-learning 与 Policy Gradient 则分别代表**价值派**与**策略派**两大阵营，后续深度算法几乎都是它们的后代。
+
+## 概念清单
+
+| 简称 | 主题 | 归属 | 核心思想 |
+|:--|:--|:--|:--|
+| [MDP](#mdp) | 马尔可夫决策过程 | 问题形式化 | (S,A,P,R,γ) + 马尔可夫性；Bellman 方程与值/策略迭代 |
+| [POMDP](#pomdp) | 部分可观测 MDP | 问题形式化 | 观测有噪，最优决策依赖**信念状态** |
+| [MC](#mc) | 蒙特卡洛方法 | 求解思路 | 用完整回合回报估值，无偏高方差 |
+| [TD](#td) | 时序差分 | 求解思路 | **自举**：用估计更新估计，可在线、低方差 |
+| [Q-learning](#q-learning) | 离策略表格 Q | 求解思路 | 采样贝尔曼最优算子，学最优 Q |
+| [Policy Gradient](#policy-gradient) | 策略梯度 / REINFORCE | 求解思路 | 直接对参数化策略求期望回报梯度 |
 
 ::::paper{tone="mdp"}
 
 ## MDP
 
-**论文 / 专著：** *Markov Decision Processes: Discrete Stochastic Dynamic Programming*
-
-**主要机构：** Martin L. Puterman（Wiley 专著）
-
-**会议 / 年份：** Wiley，1994（经典教材级参考）
+**Markov Decision Process（序贯决策的形式语言）**
 
 :::note[一句话]
-用 **状态–动作–转移–回报** 形式化序贯决策；**马尔可夫性**下最优策略可通过值迭代 / 策略迭代等求解，是后续 POMDP、近似动态规划与深度 RL 的共同语言。
+用 **(S, A, P, R, γ)** 加**马尔可夫性**形式化序贯决策：最优价值满足 **Bellman 最优方程**，可由**值迭代 / 策略迭代**求解。它是后续一切 RL 的共同语言。
 :::
 
-**材料：** [Google Books / ISBN 检索](https://www.wiley.com/en-us/Markov+Decision+Processes%3A+Discrete+Stochastic+Dynamic+Programming-p-9780471619772) · [Sutton & Barto 在线书（对照）](http://incompleteideas.net/book/the-book-2nd.html) · Code（按课程实现为准）
+**年份 / Venue** Bellman 1957（动态规划）· Howard 1960（策略迭代）· Puterman 1994（标准专著）｜ **方向** 序贯决策形式化 ｜ **性质** 有限折扣 MDP 存在最优确定性平稳策略
+
+**材料** [Bellman, Dynamic Programming](https://press.princeton.edu/books/paperback/9780691146683/dynamic-programming) · [Sutton & Barto (2nd ed.) ch.3–4](http://incompleteideas.net/book/the-book-2nd.html)
 
 ::::
 
 <details class="paper-bibtex-fold">
 <summary>BibTeX</summary>
-<pre><code>@book{puterman1994markov,
+<pre><code>@book{bellman1957dynamic,
+  title     = {Dynamic Programming},
+  author    = {Bellman, Richard E.},
+  year      = {1957},
+  publisher = {Princeton University Press}
+}
+
+@book{puterman1994markov,
   title     = {Markov Decision Processes: Discrete Stochastic Dynamic Programming},
   author    = {Puterman, Martin L.},
   year      = {1994},
@@ -65,39 +63,56 @@ draft: false
 }</code></pre>
 </details>
 
-**我记住的三点**
+### 直觉与动机
 
-1.
-2.
-3.
+要谈「最优决策」，先得把「决策问题」写清楚。MDP 给出的抽象是：智能体处于某个**状态**，选一个**动作**，环境按**转移概率**跳到新状态并给一个**奖励**，如此往复。关键的简化假设是**马尔可夫性**——「未来只取决于现在，与如何到达现在无关」。这个假设让「最优」变得可计算：无需记住整段历史，只看当前状态即可。
 
-**方法 / 实现（想写再写）**
+### 形式化
 
-—
+一个（有限、折扣）MDP 是元组 **$(S, A, P, R, \gamma)$**：状态集 $S$、动作集 $A$、转移核 $P(s'\mid s,a)$、奖励 $R(s,a)$、折扣 $\gamma\in[0,1)$。策略 $\pi(a\mid s)$ 把状态映到动作分布。**马尔可夫性**：
 
-**实验里印象最深**
+$$
+P(S_{t+1}, R_{t+1} \mid S_t, A_t, S_{t-1}, \dots) = P(S_{t+1}, R_{t+1} \mid S_t, A_t)
+$$
 
-—
+**Bellman 期望方程**（评估固定策略 $\pi$）与**Bellman 最优方程**（刻画最优 $v_*$）：
 
-**疑问或想继续看的**
+$$
+v_\pi(s) = \sum_a \pi(a\mid s)\sum_{s',r} p(s',r\mid s,a)\big[r + \gamma\, v_\pi(s')\big]
+$$
 
-—
+$$
+v_*(s) = \max_a \sum_{s',r} p(s',r\mid s,a)\big[r + \gamma\, v_*(s')\big]
+$$
+
+### 关键结果与性质
+
+- **收缩性**：Bellman 最优算子是 sup-范数下的 **$\gamma$-收缩**，$v_*$ 是其唯一不动点。
+- **值迭代（Value Iteration）**：反复应用最优算子，**以速率 $\gamma$ 几何收敛**到 $v_*$（渐近，非有限步）。
+- **策略迭代（Policy Iteration）**（Howard 1960）：交替「精确策略评估」与「贪心改进」，对有限 MDP **有限步内收敛到最优**（单调改进 + 确定性策略只有有限个）。
+- **最优策略存在性**：有限折扣 MDP 总存在一个**确定性平稳**最优策略。
+
+### 局限与延伸
+
+MDP 假设**状态完全可观测**且**模型已知**。放松「完全可观测」得到 [POMDP](#pomdp)；放松「模型已知」——即 $P, R$ 未知只能采样——正是 [MC](#mc)/[TD](#td) 等**无模型**方法要解决的问题；状态空间过大则需函数逼近（深度 RL）。
+
+### Takeaways
+
+MDP 是 RL 的「坐标系」。后面每一个算法，本质都是在「模型未知 / 状态部分可见 / 状态空间巨大」这三种放松下，近似地求解 Bellman 方程。
 
 ::::paper{tone="pomdp"}
 
 ## POMDP
 
-**论文：** *Planning and Acting in Partially Observable Stochastic Domains*
-
-**主要机构：** Brown University 等（Kaelbling, Littman, Cassandra）
-
-**会议 / 年份：** Artificial Intelligence，1998
+**Planning and Acting in Partially Observable Stochastic Domains**
 
 :::note[一句话]
-在 **观测仅为状态的随机函数** 时，最优决策需依赖 **信念状态**（对隐状态的分布）；精确求解难，机器人感知噪声、部分可见任务常建模为 POMDP 或其近似。
+当**观测只是状态的带噪函数**时，最优决策不能只看当前观测，而要依赖对隐状态的**信念（belief）分布**。POMDP 等价于在信念空间上的一个连续状态 MDP，精确求解极难。
 :::
 
-**材料：** [Paper](https://www.sciencedirect.com/science/article/pii/S000437029800023X) · Project（经典 POMDP 求解器众多，按引用链选） · Code（如 pomdp-solve 等）
+**年份 / Venue** Artificial Intelligence 1998（vol. 101, 99–134）｜ **机构** Brown / Duke 等（Kaelbling, Littman, Cassandra）｜ **方向** 部分可观测序贯决策 ｜ **复杂度** 有限时程 PSPACE-complete，无限时程不可判定
+
+**材料** [Paper (AIJ)](https://www.sciencedirect.com/science/article/pii/S000437029800023X)
 
 ::::
 
@@ -114,39 +129,47 @@ draft: false
 }</code></pre>
 </details>
 
-**我记住的三点**
+### 直觉与动机
 
-1.
-2.
-3.
+现实里智能体几乎从不「看见完整状态」：机器人只有带噪传感器、遮挡、有限视场。此时当前观测**不满足马尔可夫性**——两个真实状态可能给出相同观测却需要不同动作。POMDP 的回答是：把「对隐状态的概率分布」当作真正的决策依据。
 
-**方法 / 实现（想写再写）**
+### 形式化
 
-—
+POMDP 在 MDP 元组上增加观测集 $\Omega$ 与观测模型 $O(o\mid s',a)$，成为 **$(S, A, P, R, \Omega, O, \gamma)$**。智能体看不到 $s$，转而维护**信念状态** $b\in\Delta(S)$——状态上的概率分布，它是最优控制的**充分统计量**。执行动作 $a$、收到观测 $o$ 后按贝叶斯更新：
 
-**实验里印象最深**
+$$
+b'(s') = \frac{O(o\mid s',a)\sum_s P(s'\mid s,a)\,b(s)}{\Pr(o\mid b,a)}
+$$
 
-—
+于是 POMDP 等价于在连续信念空间 $\Delta(S)$ 上的一个「**信念 MDP**」。
 
-**疑问或想继续看的**
+### 关键结果与性质
 
-—
+- **值函数结构**：有限时程下，信念上的最优值函数是**分段线性且凸（PWLC）**，可由有限组 α-向量表示（Smallwood & Sondik 1973）。
+- **复杂度**：有限时程精确求解 **PSPACE-complete**；无限时程判定最优/近优策略**不可判定**——这也是实践中普遍采用近似（point-based value iteration、QMDP、粒子滤波 + 规划、或直接端到端学循环策略）的原因。
+- KLC 1998 本身是**信念-MDP 框架与 Witness 算法**的标准出处；上述硬度结论出自 Papadimitriou–Tsitsiklis、Madani 等另一支文献。
+
+### 局限与延伸
+
+精确 POMDP 只在很小的问题上可解。现代做法要么用**近似信念表示**，要么在深度 RL 里用 **RNN / Transformer 隐状态**隐式地承担「信念」的角色（把历史压进隐藏状态）。理解 POMDP 的价值在于：它解释了**为什么部分可观测任务需要记忆**。
+
+### Takeaways
+
+MDP → POMDP 是「完全可观测 → 信念状态上的序贯决策」的一步跨越。凡是感知有噪、有遮挡、需要记忆的任务，其形式底座都是 POMDP 或其近似。
 
 ::::paper{tone="mc"}
 
 ## MC
 
-**论文 / 教材：** *Reinforcement Learning: An Introduction*（第 5 章：蒙特卡洛方法）
-
-**主要机构：** Richard S. Sutton & Andrew G. Barto（MIT Press）
-
-**会议 / 年份：** 第 2 版，2018（免费在线版持续更新）
+**Monte Carlo Methods（Sutton & Barto 第 5 章）**
 
 :::note[一句话]
-用 **完整回合的回报样本**估计值函数或策略梯度；**无模型**、高方差，是理解 **首次访问 / 每次访问 MC** 与 **探索起点** 的基础，再过渡到 TD。
+无模型价值估计的最直接办法：**跑完整回合、平均观测到的回报**。无需知道转移/奖励，估计**无偏**但**方差高**，且只适用于会终止的**回合式**任务。
 :::
 
-**材料：** [Book (2nd ed.)](http://incompleteideas.net/book/the-book-2nd.html) · Code（教学实现见书友仓库） · Project—
+**年份 / Venue** Sutton & Barto, *Reinforcement Learning: An Introduction*（2nd ed. 2018）ch.5 ｜ **方向** 无模型、基于回报的价值估计 ｜ **性质** first-visit 无偏；需回合终止
+
+**材料** [Book (2nd ed.)](http://incompleteideas.net/book/the-book-2nd.html)
 
 ::::
 
@@ -162,39 +185,45 @@ draft: false
 }</code></pre>
 </details>
 
-**我记住的三点**
+### 直觉与动机
 
-1.
-2.
-3.
+当转移与奖励未知时，最朴素的估值方式是「多试几次，看平均能拿多少回报」。这就是 MC：不建模环境、不做自举，纯靠**采样的完整回报**的样本均值逼近价值。它是理解无模型 RL 的起点，也是 TD 的对照面。
 
-**方法 / 实现（想写再写）**
+### 形式化
 
-—
+用回合内从 $t$ 起的**完整回报** $G_t = R_{t+1} + \gamma R_{t+2} + \dots$ 的样本均值估计 $v_\pi(s)$ 或 $q_\pi(s,a)$：
 
-**实验里印象最深**
+- **首次访问 MC（first-visit）**：每回合只取 $s$ **首次**出现之后的回报平均。样本 i.i.d.、**无偏**，按大数定律收敛，方差约 $\propto 1/n$。
+- **每次访问 MC（every-visit）**：对 $s$ 的**每次**出现都计入。有限样本**有偏**（同回合内回报相关），但**一致**（访问数 → ∞ 时收敛）。
 
-—
+### 关键结果与性质
 
-**疑问或想继续看的**
+- **无偏但高方差**：整条轨迹的回报噪声大。
+- **需要回合终止**：必须观测到完整回报才能更新，不适用连续不终止任务。
+- **探索**：控制时需保证所有 $(s,a)$ 被采到——用**探索起点（exploring starts）**，或改用 **on-policy 的 ε-soft** 策略维持探索。
+- **off-policy MC**：用行为策略 $b$ 评估目标策略 $\pi$ 需**重要性采样**——普通 IS 无偏但方差可能无限；加权 IS 有偏但方差远低，实践更常用。
 
-—
+### 局限与延伸
+
+高方差 + 必须等回合结束，是 MC 的两大痛点。**TD 用自举同时解决这两件事**：不等回合结束、方差更低（代价是引入偏差）。MC 与 TD 的取舍——偏差 vs 方差、在线 vs 回合——是贯穿 RL 的核心张力。
+
+### Takeaways
+
+MC 给出「无模型估值」最干净的定义。记住它的两个标签：**无偏、高方差、需回合**。接下来的一切改进，几乎都在和这三点做交易。
 
 ::::paper{tone="td"}
 
 ## TD
 
-**论文：** *Learning to Predict by the Methods of Temporal Differences*
-
-**主要机构：** Richard S. Sutton
-
-**会议 / 年份：** Machine Learning，1988
+**Learning to Predict by the Methods of Temporal Differences**
 
 :::note[一句话]
-**自举（bootstrapping）**：用当前价值估计更新估计，**无需等到回合结束**；连接 MC 与动态规划，是 **TD(0)、TD(λ)、n-step TD** 的思想源头。
+**自举（bootstrapping）**：用「当前估计」去更新「当前估计」，无需等回合结束。TD 结合了 MC 的采样与 DP 的自举，可**在线、增量**学习，方差低于 MC——是现代价值方法的思想源头。
 :::
 
-**材料：** [Paper (Springer)](https://link.springer.com/article/10.1007/BF00115009) · [Book 第 6–12 章](http://incompleteideas.net/book/the-book-2nd.html) · Code—
+**年份 / Venue** Machine Learning 1988（vol. 3, 9–44）｜ **机构** Sutton（当时 GTE Labs）｜ **方向** 无模型、自举式价值预测 ｜ **性质** TD(λ)：λ=0 即 TD(0)，λ=1 即 MC
+
+**材料** [Paper (Springer)](https://link.springer.com/article/10.1007/BF00115009) · [Book ch.6–12](http://incompleteideas.net/book/the-book-2nd.html)
 
 ::::
 
@@ -210,39 +239,54 @@ draft: false
 }</code></pre>
 </details>
 
-**我记住的三点**
+### 直觉与动机
 
-1.
-2.
-3.
+MC 要等回合结束才知道回报，太慢也太吵。但其实我们不必等：走一步、看到即时奖励和下个状态，就已经对「这一步好不好」有了信息——因为下个状态的价值估计 $V(S_{t+1})$ 已经包含了对未来的预测。用这个「一步真实 + 后续估计」去更新当前估计，就是**自举**。
 
-**方法 / 实现（想写再写）**
+### 形式化
 
-—
+**TD(0) 更新**：
 
-**实验里印象最深**
+$$
+V(S_t) \leftarrow V(S_t) + \alpha\big[\underbrace{R_{t+1} + \gamma V(S_{t+1}) - V(S_t)}_{\delta_t,\ \text{TD 误差}}\big]
+$$
 
-—
+TD 误差 $\delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)$ 是「新信息与旧估计之差」。**TD(λ)** 用几何权重 $(1-\lambda)\lambda^{n-1}$ 融合所有 n-step 回报；后向视角引入**资格迹（eligibility trace）**：
 
-**疑问或想继续看的**
+$$
+e_t(s) = \gamma\lambda\, e_{t-1}(s) + \mathbb{1}[S_t = s], \qquad V(s) \leftarrow V(s) + \alpha\,\delta_t\, e_t(s)\ \ \forall s
+$$
 
-—
+**$\lambda=0$ 退化为 TD(0)，$\lambda=1$ 等价于 MC**——TD(λ) 是连接二者的连续谱。
+
+### 关键结果与性质
+
+- **有偏、低方差、可在线**：与 MC 恰好互补。
+- **收敛性**：Sutton (1988) 证明 TD(λ) 对吸收马尔可夫链**均值收敛**；表格 TD(0) 的**几乎必然收敛**由 Dayan (1992)、Jaakkola–Jordan–Singh (1994) 给出；**线性逼近 + on-policy** 收敛见 Tsitsiklis & Van Roy (1997)。
+- **致命三要素（deadly triad）**：**函数逼近 + 自举 + 离策略**三者同时出现时可能发散——这是深度 RL 稳定性问题的理论根源（[DQN](/blog/posts/paper-notes-reinforcement-learning-2/#dqn) 的目标网络正是为缓解它）。
+- 标准步长条件：Robbins–Monro，$\sum_t\alpha_t=\infty,\ \sum_t\alpha_t^2<\infty$。
+
+### 局限与延伸
+
+自举引入偏差，且在离策略 + 函数逼近下可能不稳。但「可在线、低方差」的优势太大，使 TD 成为主流：[Q-learning](#q-learning)（离策略 TD 控制）与几乎所有深度价值方法都建立在 TD 之上。
+
+### Takeaways
+
+TD 是 RL 里最核心的一个 idea：**用估计更新估计**。它既是 MC 与 DP 的桥梁，也埋下了「致命三要素」这颗后续深度 RL 反复要处理的雷。
 
 ::::paper{tone="qlearning"}
 
 ## Q-learning
 
-**论文：** *Q-learning*
-
-**主要机构：** Cambridge（Watkins）；Gatsby（Dayan）
-
-**会议 / 年份：** Machine Learning，1992
+**Q-learning（Watkins 1989 thesis; Watkins & Dayan 1992）**
 
 :::note[一句话]
-**离策略**表格算法：用 **贝尔曼最优算子** 的采样近似更新 Q；收敛条件与探索策略有关，是 **DQN** 的直接祖先。
+**离策略（off-policy）**表格控制算法：用 TD 采样近似**贝尔曼最优算子**，直接学最优动作价值 $Q^*$。TD 目标里的 $\max_a Q$ 与实际行为策略无关——这正是它「离策略」的来源，也是 [DQN](/blog/posts/paper-notes-reinforcement-learning-2/#dqn) 的直接祖先。
 :::
 
-**材料：** [Paper (Springer)](https://link.springer.com/article/10.1007/BF00992698) · [Watkins 1989 thesis (Cambridge)](https://www.cs.rhul.ac.uk/~chrisw/new_thesis.pdf) · Code—
+**年份 / Venue** Machine Learning 1992（vol. 8, 279–292；原始为 Watkins 1989 Cambridge 博士论文）｜ **机构** Cambridge（Watkins）· Gatsby（Dayan）｜ **方向** 无模型、离策略、最优控制 ｜ **性质** 表格下 w.p.1 收敛到 $Q^*$
+
+**材料** [Paper (Springer)](https://link.springer.com/article/10.1007/BF00992698) · [Watkins 1989 thesis](https://www.cs.rhul.ac.uk/~chrisw/new_thesis.pdf)
 
 ::::
 
@@ -258,39 +302,51 @@ draft: false
 }</code></pre>
 </details>
 
-**我记住的三点**
+### 直觉与动机
 
-1.
-2.
-3.
+TD 能评估一个**给定**策略；但我们真正想要的是**最优**策略。Q-learning 的巧妙在于：把 TD 目标里的「按当前策略取下一动作」换成「取**贪心**动作 $\max_a Q$」。这样无论行为策略如何探索，学到的都是**最优** Q——评估的对象（目标策略）与产生数据的对象（行为策略）解耦，即**离策略**。
 
-**方法 / 实现（想写再写）**
+### 形式化
 
-—
+**更新规则**（离策略 TD 控制）：
 
-**实验里印象最深**
+$$
+Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha\big[R_{t+1} + \gamma \max_a Q(S_{t+1}, a) - Q(S_t, A_t)\big]
+$$
 
-—
+目标中的 $\max_a Q$ 是**贝尔曼最优算子**的采样近似；行为上常用 ε-greedy 保证探索，但它不进入目标——故为离策略。
 
-**疑问或想继续看的**
+### 关键结果与性质
 
-—
+**表格情形**下，$Q$ 以概率 1 收敛到 $Q^*$，当且仅当：
+
+1. **每个状态–动作对 $(s,a)$ 被无限次访问**；
+2. 步长满足 **Robbins–Monro**：$\sum_t\alpha_t(s,a)=\infty,\ \sum_t\alpha_t^2(s,a)<\infty$；
+3. 奖励有界，$\gamma<1$（或问题为恰当的回合式 MDP）。
+
+原始证明见 Watkins & Dayan (1992)；更一般的随机逼近证明见 Jaakkola–Jordan–Singh (1994)、Tsitsiklis (1994)。**注意：保证仅对表格成立，函数逼近下不再有收敛保证。**
+
+### 局限与延伸
+
+表格 Q-learning 无法扩展到高维/连续状态；$\max$ 算子还带来系统性**高估**。用神经网络逼近 $Q$ 即 [DQN](/blog/posts/paper-notes-reinforcement-learning-2/#dqn)，它用经验回放 + 目标网络稳定训练、用 Double DQN 缓解高估；连续动作则无法枚举 $\max$，催生 [DDPG](/blog/posts/paper-notes-reinforcement-learning-2/#ddpg)。
+
+### Takeaways
+
+Q-learning 是**价值派**的代表：先学好 $Q^*$，再贪心导出策略。它的两处软肋——**只能表格 / 只能离散**——直接定义了下一篇 DQN、DDPG、SAC 等一系列工作的问题域。
 
 ::::paper{tone="policygrad"}
 
-## Policy gradient
+## Policy Gradient
 
-**论文：** *Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning*（REINFORCE）
-
-**主要机构：** Ronald J. Williams（Northeastern / 连接主义时代典型署名）
-
-**会议 / 年份：** Machine Learning，1992
+**Simple Statistical Gradient-Following Algorithms（REINFORCE）+ 策略梯度定理**
 
 :::note[一句话]
-对 **参数化策略** 直接求 **期望回报梯度** 的蒙特卡洛估计；**高方差**，常配合 **基线（baseline）** 与 **演员–评论家** 减方差，是 **PPO、SAC** 等现代算法的根。
+不学价值再导出策略，而是**直接对参数化策略 $\pi_\theta$ 求期望回报的梯度**并上升。**策略梯度定理**表明该梯度里**不含状态分布对 $\theta$ 的导数**，因而可由采样估计——这是 PPO、SAC 等现代策略方法的根。
 :::
 
-**材料：** [Paper (Springer)](https://link.springer.com/article/10.1007/BF00992696) · [Sutton et al. PG 定理（ICML 2000）](https://papers.nips.cc/paper/1713-policy-gradient-methods-for-reinforcement-learning-with-function-approximation.pdf) · Code—
+**年份 / Venue** Williams 1992（REINFORCE, Machine Learning 8:229–256）· Sutton, McAllester, Singh, Mansour（策略梯度定理, NIPS 1999）｜ **方向** 无模型、直接策略优化 ｜ **性质** 无偏、高方差，需基线/critic 减方差
+
+**材料** [Williams 1992 (Springer)](https://link.springer.com/article/10.1007/BF00992696) · [PG Theorem (NIPS 1999)](https://proceedings.neurips.cc/paper/1999/hash/464d828b85b0bed98e80ade0a5c43b0f-Abstract.html)
 
 ::::
 
@@ -303,610 +359,69 @@ draft: false
   volume  = {8},
   pages   = {229--256},
   year    = {1992}
+}
+
+@inproceedings{sutton1999policy,
+  title     = {Policy Gradient Methods for Reinforcement Learning with Function Approximation},
+  author    = {Sutton, Richard S. and McAllester, David and Singh, Satinder and Mansour, Yishay},
+  booktitle = {Advances in Neural Information Processing Systems 12 (NIPS 1999)},
+  year      = {1999}
 }</code></pre>
 </details>
 
-**我记住的三点**
+### 直觉与动机
 
-1.
-2.
-3.
+价值派（Q-learning）先估价值、再贪心导出策略，对连续/高维动作或随机最优策略并不方便。**策略派**换个思路：把策略本身参数化为 $\pi_\theta$，直接调 $\theta$ 让期望回报变大。难点在于——回报既取决于策略选的动作，也取决于策略诱导的**状态分布**，后者对 $\theta$ 的依赖看似难算。策略梯度定理解决了这个难点。
 
-**方法 / 实现（想写再写）**
+### 形式化
 
-—
+**策略梯度定理**：对目标 $J(\theta)$（如期望回报），
 
-**实验里印象最深**
+$$
+\nabla_\theta J(\theta) = \sum_s d^\pi(s)\sum_a \nabla_\theta \pi(a\mid s;\theta)\, q_\pi(s,a) = \mathbb{E}_\pi\big[\nabla_\theta \log \pi(A_t\mid S_t;\theta)\, q_\pi(S_t, A_t)\big]
+$$
 
-—
+其中 $d^\pi$ 是策略诱导的（折扣）状态分布。**关键：梯度中不出现 $\nabla_\theta d^\pi$**——状态分布对 $\theta$ 的依赖恰好消去，于是梯度可纯由采样估计。
 
-**疑问或想继续看的**
+**REINFORCE 更新**（蒙特卡洛策略梯度，Williams 1992）：
 
-—
+$$
+\theta \leftarrow \theta + \alpha\, G_t\, \nabla_\theta \log \pi(A_t\mid S_t;\theta)
+$$
 
-::::paper{tone="ddpg"}
+用完整回报 $G_t$，无偏但**高方差**。
 
-## DDPG
+### 关键结果与性质
 
-**论文：** *Continuous Control with Deep Reinforcement Learning*
+- **基线（baseline）减方差**：减去任意与动作无关的 $b(S_t)$ 不引入偏差（因 $\mathbb{E}[\nabla_\theta\log\pi\cdot b]=0$），常取 $b(s)\approx V(s)$，得优势 $G_t - V(s)$。
+- **演员–评论家（actor-critic）**：把 $G_t$ 换成**自举的 critic 估计**（如 TD 误差 $\delta_t$ 作优势），actor 更新策略、critic 学价值——用偏差换更低方差、可在线。
+- **兼容函数逼近**：Sutton et al. (1999) 证明用**兼容特征**逼近 $q_\pi$ 可得**精确无偏**的策略梯度。
 
-**主要机构：** Google DeepMind 等（Lillicrap, Hunt, Silver…）
+### 局限与延伸
 
-**会议 / 年份：** ICLR，2016（arXiv 2015）
+纯 REINFORCE 方差太大、样本效率低。现代策略方法几乎都在此基础上加约束与减方差：[PPO](/blog/posts/paper-notes-reinforcement-learning-2/#ppo)（裁剪限制更新幅度）、[SAC](/blog/posts/paper-notes-reinforcement-learning-2/#sac)（最大熵 + 双 Q）、[DDPG](/blog/posts/paper-notes-reinforcement-learning-2/#ddpg)（确定性策略梯度）；乃至 LLM 后训练的 RLHF/[GRPO](/blog/posts/paper-notes-reinforcement-learning-2/#grpo) 也都是策略梯度的直系后代。
 
-:::note[一句话]
-**确定性策略** + **双网络（actor / critic）** + **目标网络** + **经验回放**，把 Q-learning 思想搬到**连续动作**；对 **TD3、SAC** 等连续控制基线影响极大。
-:::
+### Takeaways
 
-**材料：** [Paper](https://arxiv.org/abs/1509.02971) · Project— · [Code (OpenAI baselines 等)](https://github.com/openai/baselines)
+Policy Gradient 是**策略派**的根。记住两点：**梯度可采样估计**（定理保证）、**必须减方差**（基线 / critic）。第二篇的 PPO、SAC、GRPO 全是「如何更稳、更省地做策略梯度」的不同答案。
 
-::::
+## Cross-Topic Comparison
 
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@inproceedings{lillicrap2016continuous,
-  title     = {Continuous Control with Deep Reinforcement Learning},
-  author    = {Lillicrap, Timothy P. and Hunt, Jonathan J. and Pritzel, Alexander and Heess, Nicolas and Erez, Tom and Tassa, Yuval and Silver, David and Wierstra, Daan},
-  booktitle = {International Conference on Learning Representations},
-  year      = {2016},
-  url       = {https://arxiv.org/abs/1509.02971}
-}</code></pre>
-</details>
+| 主题 | 需要模型? | 需回合终止? | 自举? | 偏差 / 方差 | on/off-policy | 学什么 |
+|:--|:--|:--|:--|:--|:--|:--|
+| MDP | 是（P,R 已知） | — | DP 自举 | 精确 | — | 规划求解 $v_*/\pi_*$ |
+| POMDP | 是 | — | DP 自举 | 精确但难解 | — | 信念上的 $v_*$ |
+| MC | 否 | **是** | 否 | 无偏 / 高 | 皆可 | 价值（回报均值） |
+| TD | 否 | 否 | **是** | 有偏 / 低 | 皆可 | 价值 |
+| Q-learning | 否 | 否 | 是 | 有偏 / 中 | **off** | 最优 $Q^*$ |
+| Policy Gradient | 否 | REINFORCE 需；AC 否 | AC 用 | 无偏(MC)/有偏(AC) | 多为 on | 策略 $\pi_\theta$ |
 
-**我记住的三点**
+## Discussion
 
-1.
-2.
-3.
+1. **两条主线：价值 vs 策略。** [Q-learning](#q-learning) 学价值再导出策略；[Policy Gradient](#policy-gradient) 直接优化策略。深度时代前者长出 [DQN](/blog/posts/paper-notes-reinforcement-learning-2/#dqn)、后者长出 [PPO](/blog/posts/paper-notes-reinforcement-learning-2/#ppo)/[SAC](/blog/posts/paper-notes-reinforcement-learning-2/#sac)；actor-critic 则是两者的合流。
 
-**方法 / 实现（想写再写）**
+2. **一个永恒的取舍：偏差 vs 方差。** [MC](#mc) 无偏高方差、[TD](#td) 有偏低方差，TD(λ) 是二者的连续谱。选 λ、选 n-step、选是否用 critic，本质都是在这条轴上选点。
 
-—
+3. **致命三要素是暗线。** 「函数逼近 + 自举 + 离策略」同时出现会破坏收敛保证。本篇的收敛定理**只在表格 / 线性 on-policy 下成立**；第二篇的目标网络、双 Q、保守约束，很大程度都是在**工程上驯服**这个理论隐患。
 
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="dqn"}
-
-## DQN
-
-**论文：** *Human-level Control Through Deep Reinforcement Learning*
-
-**主要机构：** DeepMind（Mnih 等）
-
-**会议 / 年份：** Nature，2015
-
-:::note[一句话]
-**神经网络逼近 Q** + **经验回放** + **目标网络** 稳定离策略学习，Atari 上达到人类水平；开启 **深度价值方法** 主流时代，与 **Double DQN、Rainbow** 等改进一脉相承。
-:::
-
-**材料：** [Paper](https://www.nature.com/articles/nature14236) · [arXiv 扩展版](https://arxiv.org/abs/1312.5602) · [Code (官方/Dopamine 等)](https://github.com/google/dopamine)
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@article{mnih2015human,
-  title   = {Human-level Control Through Deep Reinforcement Learning},
-  author  = {Mnih, Volodymyr and Kavukcuoglu, Koray and Silver, David and others},
-  journal = {Nature},
-  volume  = {518},
-  number  = {7540},
-  pages   = {529--533},
-  year    = {2015}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="ppo"}
-
-## PPO
-
-**论文：** *Proximal Policy Optimization Algorithms*
-
-**主要机构：** OpenAI（Schulman 等）
-
-**会议 / 年份：** arXiv 2017（工程上广泛作为 on-policy 默认）
-
-:::note[一句话]
-**裁剪替代目标**限制策略更新幅度，实现稳定、易调的 on-policy 训练；机器人仿真与游戏基准常用 **PPO** 作强基线。
-:::
-
-**材料：** [Paper](https://arxiv.org/abs/1707.06347) · [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/algorithms/ppo.html) · [Code (Stable-Baselines3 等)](https://github.com/DLR-RM/stable-baselines3)
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@article{schulman2017proximal,
-  title   = {Proximal Policy Optimization Algorithms},
-  author  = {Schulman, John and Wolski, Filip and Dhariwal, Praphulla and Radford, Alec and Klimov, Oleg},
-  journal = {arXiv preprint arXiv:1707.06347},
-  year    = {2017},
-  url     = {https://arxiv.org/abs/1707.06347}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="sac"}
-
-## SAC
-
-**论文：** *Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor*
-
-**主要机构：** UC Berkeley / BAIR（Haarnoja, Zhou, Abbeel, Levine）
-
-**会议 / 年份：** ICML，2018
-
-:::note[一句话]
-在目标中加入 **熵正则**，随机策略 + 双 Q 网络减轻过估计；**样本效率高**，连续控制与机器人学习常用 **SAC** 作 off-policy 默认之一。
-:::
-
-**材料：** [Paper](https://arxiv.org/abs/1801.01290) · [Project](https://sites.google.com/view/sac-initial-results/) · [Code](https://github.com/haarnoja/sac)
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@inproceedings{haarnoja2018soft,
-  title     = {Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor},
-  author    = {Haarnoja, Tuomas and Zhou, Aurick and Abbeel, Pieter and Levine, Sergey},
-  booktitle = {International Conference on Machine Learning},
-  pages     = {1861--1870},
-  year      = {2018},
-  url       = {https://arxiv.org/abs/1801.01290}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="td3"}
-
-## TD3
-
-**论文：** *Addressing Function Approximation Error in Actor-Critic Methods*
-
-**主要机构：** Fujimoto, van Hoof, Meger（McGill / Alberta）
-
-**会议 / 年份：** ICML，2018
-
-:::note[一句话]
-**双 critic**、**延迟策略更新**、**目标策略平滑** 抑制 Q 过估计；在 **DDPG** 框架上小改即显著稳态，常与 **SAC** 对照读连续控制。
-:::
-
-**材料：** [Paper](https://arxiv.org/abs/1802.09477) · [Project](https://spinningup.openai.com/en/latest/algorithms/td3.html) · [Code (作者 PyTorch)](https://github.com/sfujim/TD3)
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@inproceedings{fujimoto2018addressing,
-  title     = {Addressing Function Approximation Error in Actor-Critic Methods},
-  author    = {Fujimoto, Scott and van Hoof, Herke and Meger, David},
-  booktitle = {International Conference on Machine Learning},
-  pages     = {1587--1596},
-  year      = {2018},
-  url       = {https://arxiv.org/abs/1802.09477}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="cql"}
-
-## CQL
-
-**论文：** *Conservative Q-Learning for Offline Reinforcement Learning*
-
-**主要机构：** UC Berkeley / Google（Kumar, Zhou, Tucker, Levine）
-
-**会议 / 年份：** NeurIPS，2020
-
-:::note[一句话]
-在贝尔曼备份外加 **保守项**，压低数据集未覆盖动作的 Q，缓解 **离线 RL 的过估计与外推误差**；与 **BC、IQL** 同为机器人离线数据集策略学习的常用对照。
-:::
-
-**材料：** [Paper](https://arxiv.org/abs/2006.04779) · [Project](https://sites.google.com/view/cql-offline-rl) · [Code](https://github.com/aviralkumar2907/CQL)
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@inproceedings{kumar2020conservative,
-  title     = {Conservative Q-Learning for Offline Reinforcement Learning},
-  author    = {Kumar, Aviral and Zhou, Aurick and Tucker, George and Levine, Sergey},
-  booktitle = {Advances in Neural Information Processing Systems},
-  year      = {2020},
-  url       = {https://arxiv.org/abs/2006.04779}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="iql"}
-
-## IQL
-
-**论文：** *Offline Reinforcement Learning with Implicit Q-Learning*
-
-**主要机构：** UC Berkeley / Google Brain（Kostrikov, Nair, Levine）
-
-**会议 / 年份：** ICLR，2022
-
-:::note[一句话]
-用 **期望分位回归（expectile）** 隐式逼近最优价值，**避免显式查询数据集未出现动作的 Q**，训练稳、实现相对简单；离线机器人模仿改进常用 **IQL**。
-:::
-
-**材料：** [Paper](https://arxiv.org/abs/2110.06169) · Project— · [Code](https://github.com/ikostrikov/implicit_q_learning)
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@inproceedings{kostrikov2022offline,
-  title     = {Offline Reinforcement Learning with Implicit Q-Learning},
-  author    = {Kostrikov, Ilya and Nair, Ashvin and Levine, Sergey},
-  booktitle = {International Conference on Learning Representations},
-  year      = {2022},
-  url       = {https://arxiv.org/abs/2110.06169}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="bc"}
-
-## BC
-
-**论文：** *ALVINN: An Autonomous Land Vehicle in a Neural Network*
-
-**主要机构：** CMU（Pomerleau）
-
-**会议 / 年份：** NeurIPS（前身 NIPS），1989
-
-:::note[一句话]
-**监督学习拟合专家状态–动作对**，无显式环境模型；**复合误差**与分布偏移是经典痛点（见 DAgger 等），仍是机器人模仿与 **离线 RL 行为先验** 的基线。
-:::
-
-**材料：** [Paper (NIPS 1989)](https://papers.nips.cc/paper/1989/hash/89f0fd5c927d466b6a9fc097cad76a0d-Abstract.html) · [Florence et al. BC 综述 (2021)](https://arxiv.org/abs/2105.06981) · Code—
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@inproceedings{pomerleau1989alvinn,
-  title     = {{ALVINN}: An Autonomous Land Vehicle in a Neural Network},
-  author    = {Pomerleau, Dean A.},
-  booktitle = {Advances in Neural Information Processing Systems},
-  year      = {1989}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="qrl"}
-
-## QRL
-
-**论文：** *Distributional Reinforcement Learning with Quantile Regression*（**QR-DQN**；口语中常与 IQN、分位价值统称「分位 / 分布式 Q」）
-
-**主要机构：** DeepMind（Dabney, Rowland, Bellemare, Munos）
-
-**会议 / 年份：** AAAI，2018
-
-:::note[一句话]
-用 **分位数回归** 逼近回报分布的 **Wasserstein 距离**，不只估计均值 Q；**QRL** 在部分教材/讨论中指该 **Quantile / 分布式** 一脉（若你指其它缩写请替换本卡片题名与 bib）。
-:::
-
-**材料：** [Paper (AAAI)](https://ojs.aaai.org/index.php/AAAI/article/view/11791) · [IQN 后续 (ICML 2018)](https://arxiv.org/abs/1806.06923) · Code（Dopamine / CleanRL 等）
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@inproceedings{dabney2018distributional,
-  title     = {Distributional Reinforcement Learning with Quantile Regression},
-  author    = {Dabney, Will and Rowland, Mark and Bellemare, Marc G. and Munos, R{\'e}mi},
-  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
-  volume    = {32},
-  number    = {1},
-  year      = {2018}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="dpo"}
-
-## DPO
-
-**论文：** *Direct Preference Optimization: Your Language Model is Secretly a Reward Model*
-
-**主要机构：** Stanford 等（Rafailov, Sharma, Mitchell, Ermon, Manning, Finn）
-
-**会议 / 年份：** NeurIPS，2023
-
-:::note[一句话]
-**跳过显式奖励模型**，直接在偏好对上优化策略，使目标等价于带 KL 约束的 RLHF 类问题；大模型对齐与 **RL-free 偏好学习** 的代表作之一。
-:::
-
-**材料：** [Paper](https://arxiv.org/abs/2305.18290) · [Project](https://github.com/eric-mitchell/direct-preference-optimization) · [Code](https://github.com/eric-mitchell/direct-preference-optimization)
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@inproceedings{rafailov2023direct,
-  title     = {Direct Preference Optimization: Your Language Model is Secretly a Reward Model},
-  author    = {Rafailov, Rafael and Sharma, Archit and Mitchell, Eric and Ermon, Stefano and Manning, Christopher D. and Finn, Chelsea},
-  booktitle = {Advances in Neural Information Processing Systems},
-  year      = {2023},
-  url       = {https://arxiv.org/abs/2305.18290}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="grpo"}
-
-## GRPO
-
-**论文：** *DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning*（技术报告；**GRPO** 作为组内相对优势估计广泛用于后续开源复现）
-
-**主要机构：** DeepSeek-AI
-
-**会议 / 年份：** arXiv，2025
-
-:::note[一句话]
-对同一提示 **采样一组完整回答**，用 **组内相对回报（减均值/标准化）** 构造优势，**弱化独立 critic**；大模型 **推理链后训练** 与开源 **RLVR** 管线常讨论 **GRPO**。
-:::
-
-**材料：** [Paper](https://arxiv.org/abs/2501.12948) · [OpenReview / 社区解读](https://openreview.net/) · Code（TRL、verl、OpenRLHF 等实现以仓库为准）
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@misc{deepseek2025r1,
-  title         = {{DeepSeek-R1}: Incentivizing Reasoning Capability in {LLMs} via Reinforcement Learning},
-  author        = {{DeepSeek-AI}},
-  year          = {2025},
-  eprint        = {2501.12948},
-  archivePrefix = {arXiv},
-  url           = {https://arxiv.org/abs/2501.12948},
-  note          = {Describes GRPO-style group-relative policy optimization for LLM RL}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-::::paper{tone="rlt"}
-
-## RLT
-
-**论文：** *（请替换为你所指的具体论文题名；**RLT** 缩写多义）*
-
-**主要机构：** （待补）
-
-**会议 / 年份：** （待补）
-
-:::note[一句话]
-占位卡片：**RLT** 可能对应课程/实验室内部的特定方法缩写；请把 **Paper 链接、机构、年份、BibTeX** 换成正式文献，并在 `Reinforcement_Learning_1/RLT/` 存放 PDF。
-:::
-
-**材料：** Paper · Project · Code（待补）
-
-::::
-
-<details class="paper-bibtex-fold">
-<summary>BibTeX</summary>
-<pre><code>@misc{rltPlaceholder2026,
-  title = {RLT: replace with your canonical citation},
-  note  = {User-defined abbreviation; update url, author, and year when bound to a specific paper},
-  year  = {2026}
-}</code></pre>
-</details>
-
-**我记住的三点**
-
-1.
-2.
-3.
-
-**方法 / 实现（想写再写）**
-
-—
-
-**实验里印象最深**
-
-—
-
-**疑问或想继续看的**
-
-—
-
-**和本页其他论文**
-
-- [MDP](#mdp) → [POMDP](#pomdp)：完全可观测 → **信念状态** 上的序贯决策。  
-- [MC](#mc) → [TD](#td) → [Q-learning](#q-learning)：回合回报估计 → **自举** → **离策略** 最优 Q。  
-- [Policy gradient](#policy-gradient) → [DDPG](#ddpg) / [TD3](#td3) / [SAC](#sac)：**随机/确定性策略** + 深度 critic 的演进；[DQN](#dqn) 与 [PPO](#ppo) 分属 **深度价值** 与 **稳定 on-policy** 主线。  
-- [BC](#bc) → [CQL](#cql) / [IQL](#iql)：纯模仿 → **保守或隐式 Q** 缓解离线外推。  
-- [QRL](#qrl)：在期望 Q 之外建模 **回报分布 / 分位数**。  
-- [DPO](#dpo) / [GRPO](#grpo)：从 **偏好优化** 到 **组相对优势** 的 LLM 后训练；与经典机器人 RL 对照读 **目标函数与数据形态**。
-
-## 新增一篇时怎么写（极简）
-
-1. `Reinforcement_Learning_1` 下建子目录；复制 **卡片 + BibTeX + 笔记**。  
-2. 新 `tone` 在 `markdown.css` 的 `.paper-note-card[data-paper-tone="…"]` 追加左边框色。  
-3. 目录表加一行；链接 `/blog/paper-node/Reinforcement_Learning_1/...`。
-
----
-
-_Changelog：2026-03 — 按 Robot Learning 系列模板补全 MDP→GRPO 等条目；RLT 保留待绑定文献。_
+4. **形式化决定了「需要记忆吗」。** [MDP](#mdp) 完全可观测 → 无需历史；[POMDP](#pomdp) 部分可观测 → 必须靠信念/记忆。深度 RL 里的 RNN/Transformer 隐状态，正是在隐式地做 POMDP 的信念更新。

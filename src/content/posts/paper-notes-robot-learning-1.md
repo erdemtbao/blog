@@ -1,54 +1,57 @@
 ---
 title: "Paper Notes: Robot Learning (1)"
 published: 2026-03-20
-description: Reading notes—ACT, Diffusion Policy, DP3, RT-1, RT-2, Octo, OpenVLA, RDT and related robot learning papers.
+description: 八篇机器人学习里程碑工作的精读笔记——ACT、Diffusion Policy、DP3、RT-1、RT-2、Octo、OpenVLA、RDT-1B，覆盖模仿学习、扩散策略与 VLA。
 image: ''
 tags: [Paper Notes, Robot Learning]
 category: Paper Notes
 draft: false
 ---
 
-Robot learning 论文阅读记录，对应本地资料目录 `assets/paper_note/Robot_Learning_1/`（与 `paper_node` 二选一；**线上可访问**请同步到 `public/paper-node/Robot_Learning_1/`）。**排序**：从简到繁、从早期到近期，**同一系列相邻**（如 DP→DP3，RT-1→RT-2）。**圆角卡片**内：简称、题名、主要机构、**会议 / 年份**、一句话、`Paper · Project · Code`；**卡片外**先 **BibTeX 折叠**，再写笔记。`::::paper{tone="…"} … ::::` 须四个冒号以嵌套 `:::note`。
+## Overview
 
-:::tip[PDF / 图片放哪？]
-放到 `blog/public/paper-node/Robot_Learning_1/<简称>/`，文中链接：`/blog/paper-node/Robot_Learning_1/<简称>/xxx.pdf`（与 `assets/...` 二选一时，以 `public` 为准才能被网站访问）。
-:::
+本篇整理 2022–2024 年机器人操作（manipulation）学习中的八篇代表性工作。它们看似分散，其实共同回答两个问题：**如何表达示范中的多模态动作分布（multimodal action distribution）**，以及**如何把机器人策略「做大」（scaling）**。按这两条线索，可以把八篇论文归为三组：
 
-## 目录
+- **小规模模仿 + 表达力更强的动作模型**：ACT 用 action chunking + CVAE 处理复合误差与多模态；Diffusion Policy（DP）改用扩散过程直接建模动作分布；DP3 把观测从 2D 图像换成 3D 点云以提升泛化。
+- **机器人 Transformer 的规模化与 VLA 的出现**：RT-1 证明「大规模真实数据 + Transformer」可行；RT-2 进一步把互联网级 VLM 的知识迁移进控制，形成 Vision-Language-Action（VLA）范式。
+- **开源通才 / 基础模型**：Octo 与 OpenVLA 是两条开源路线（轻量扩散头 vs. 7B VLM）；RDT-1B 把扩散策略推到十亿参数级的双臂基础模型。
 
-| 简称 | 论文（短） | 跳转 |
-|:---:|:---|:---:|
-| ACT | Bimanual + action chunking | [↓](#act) |
-| DP | Diffusion visuomotor policy | [↓](#dp) |
-| DP3 | 3D diffusion policy | [↓](#dp3) |
-| RT-1 | Robotics Transformer at scale | [↓](#rt-1) |
-| RT-2 | VLA transfer web knowledge | [↓](#rt-2) |
-| Octo | Open generalist robot policy | [↓](#octo) |
-| OpenVLA | Open-source 7B VLA | [↓](#openvla) |
-| RDT | Diffusion Transformer 双手基础模型 | [↓](#rdt) |
+这些工作在方法上互相借用：action chunking 贯穿 ACT、DP、Octo、RDT；扩散动作头从 DP 扩散到 DP3、Octo、RDT；动作 token 化从 RT-1 延续到 RT-2、OpenVLA。
+
+## Paper List
+
+| 简称 | 年份 / Venue | 主题 | 机器人 / Benchmark | 核心思想 |
+|:--|:--|:--|:--|:--|
+| [ACT](#act) | RSS 2023 | 模仿学习 / action chunking | ALOHA 双臂真机 | 一次预测动作块 + CVAE，缓解复合误差 |
+| [DP](#dp) | RSS 2023（后扩展 IJRR 2024） | 扩散策略 | Robomimic 等 4 类 + UR5/Franka | 用条件扩散建模动作分布 |
+| [DP3](#dp3) | RSS 2024 | 3D 扩散策略 | 72 仿真任务 + Franka/Allegro | 稀疏点云 + 轻量 3D 编码器提升泛化 |
+| [RT-1](#rt-1) | RSS 2023 | 机器人 Transformer | Everyday Robots 移动操作机 | 大规模真机数据 + 动作离散 token |
+| [RT-2](#rt-2) | CoRL 2023 | VLA / 知识迁移 | Everyday Robots 移动操作机 | VLM 直接输出动作 token，涌现语义泛化 |
+| [Octo](#octo) | RSS 2024 | 开源通才策略 | 9 套真机（WidowX/UR5/Franka） | 模块化 Transformer + 扩散头，快速微调 |
+| [OpenVLA](#openvla) | CoRL 2024 | 开源 7B VLA | WidowX / Google robot / Franka | 双视觉编码器 + Llama 2，全开源可微调 |
+| [RDT](#rdt) | ICLR 2025 | 双臂扩散基础模型 | ALOHA 双臂真机 | 1.2B DiT 扩散 + 统一动作空间 |
+
 
 ::::paper{tone="act"}
 
 ## ACT
 
-**论文：** *Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware by Imitating Short Unconstrained Workflows*（ACT / Action Chunking with Transformers）
-
-**主要机构：** Stanford University（ALOHA 等与本文联用的典型设置）
-
-**会议 / 年份：** Robotics: Science and Systems (RSS)，2023
+**Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware**（ACT，Action Chunking with Transformers）
 
 :::note[一句话]
-用 Transformer 对**动作块**建模，从短时程示范里学细粒度双手操作；常与 ALOHA 等低成本真机联用。
+用 Transformer 一次性预测未来一段**动作块（action chunk）**，配合 CVAE 隐变量与时序集成，从约 50 条示范里学会低成本双臂硬件上的细粒度操作。
 :::
 
-**材料：** [Paper](https://arxiv.org/abs/2304.13705) · [Project](https://tonyzhaozh.github.io/aloha/) · [Code](https://github.com/tonyzhaozh/aloha) · 本地摘录：[算法伪代码](/blog/paper-node/Robot_Learning_1/ACT/ACT_algo.pdf) · [详细结构图](/blog/paper-node/Robot_Learning_1/ACT/ACT_detail_architecture.pdf)
+**会议 / 年份** RSS 2023 ｜ **机构** Stanford · UC Berkeley · Meta ｜ **方向** Imitation learning, action chunking, CVAE ｜ **真机** ✅ ALOHA 双臂（14-DoF，4 相机）
+
+**材料** [Paper](https://arxiv.org/abs/2304.13705) · [Project](https://tonyzhaozh.github.io/aloha/) · [Code (ACT)](https://github.com/tonyzhaozh/act) · [Code (ALOHA 硬件)](https://github.com/tonyzhaozh/aloha)
 
 ::::
 
 <details class="paper-bibtex-fold">
 <summary>BibTeX</summary>
 <pre><code>@inproceedings{zhao2023learning,
-  title     = {Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware by Imitating Short Unconstrained Workflows},
+  title     = {Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware},
   author    = {Zhao, Tony Z. and Kumar, Vikash and Levine, Sergey and Finn, Chelsea},
   booktitle = {Robotics: Science and Systems},
   year      = {2023},
@@ -56,55 +59,56 @@ Robot learning 论文阅读记录，对应本地资料目录 `assets/paper_note/
 }</code></pre>
 </details>
 
-**我记住的三点**
+### Motivation
 
-1. **Action Chunking**：策略一次预测未来 *k* 步动作（动作块），而非逐步输出。这缓解了自回归策略中**复合误差**的问题——一旦某步偏差导致分布偏移，后续帧会快速漂移。动作块将时间粒度从「每帧」提升到「每段」，使策略更鲁棒。
-2. **CVAE 训练 + Transformer 解码**：训练阶段使用一个额外的 **Style Encoder**（类似 CVAE encoder），把专家动作序列压缩为一个隐变量 *z*，与当前观测拼接后输入 Transformer decoder 预测动作块。推理时 *z* 从标准正态分布采样，让模型能覆盖**多模态**的示范分布。
-3. **Temporal Ensemble**（时序集成）：连续时间步预测的动作块有重叠区，对重叠部分做**指数加权平均**可平滑输出、减少抖动。这比简单「取最新预测」效果好很多，尤其在需要高精度末端控制时（如插入、拧盖等任务）。
+细粒度双手操作（穿扎带、插电池、开调料杯盖）对硬件精度要求高，而低成本遥操作硬件本身不精确、示范带噪声。逐帧模仿学习在长时程上会累积**复合误差（compounding error）**：某一步偏差导致观测分布偏移，后续预测越漂越远。ACT 的目标是让这类精细任务在约 10 分钟示范、廉价硬件上也能学会。
 
-**方法 / 实现（想写再写）**
+### Method
 
-![ACT 算法伪代码](/blog/paper-node/Robot_Learning_1/ACT/ACT_algo.png)
+ACT 以 CVAE 形式训练，核心是把预测粒度从「每帧」抬到「每段」：
 
-![ACT 结构细节](/blog/paper-node/Robot_Learning_1/ACT/ACT_detail_architecture.png)
+- **Action Chunking**：策略一次预测未来 *k* 步动作，把有效决策步数缩短到原来的 1/*k*，直接压制复合误差。
+- **CVAE + Transformer**：训练时一个 style encoder 把专家动作序列 + 关节状态压成隐变量 *z*；观测（ResNet-18 图像特征 + 关节 token）与 *z* 一起送入 Transformer decoder。推理时 **z 取先验均值（即 z = 0）**，而非从 N(0, I) 采样。
+- **非自回归解码**：decoder 在**一次前向**中输出完整的 *k* × 14 动作块，而不是逐步自回归生成——这点原笔记写反了。
+- **Temporal Ensemble**：相邻时刻预测的动作块在时间上重叠，对重叠部分做**指数加权平均**（权重 $w_i = \exp(-m\cdot i)$）平滑输出、抑制抖动。
 
-整体架构可分为两部分：
+结构规模：ResNet-18 编码每帧图像，4 层 encoder + 7 层 decoder，隐变量维度 32，**参数量约 80M**（原笔记「30M」有误），单 GPU 可训。
 
-- **训练**：观测（关节位置 + 图像 token）和专家动作序列分别编码。专家动作经 Style Encoder 得到隐变量 *z*（CVAE 瓶颈），与观测 token 一起送入 Transformer Decoder（cross-attention），输出完整动作块。KL 散度项约束 *z* 靠近先验。
-- **推理**：去掉 Style Encoder，*z* 从先验采样；Transformer Decoder 输入仅有观测，自回归生成 *k* 步动作。
+![ACT 算法伪代码](/blog/paper-note/Robot_Learning_1/ACT/ACT_algo.png)
 
-关键实现：
-- 图像走 ResNet-18 出 patch feature map，展平后加可学习位置编码。
-- 关节位置直接线性投射成 token。
-- Transformer 层数不深（4 层 encoder + 7 层 decoder 为典型），参数量约 30M，在单 GPU 上即可训练。
+![ACT 结构细节](/blog/paper-note/Robot_Learning_1/ACT/ACT_detail_architecture.png)
 
-**实验里印象最深**
+### Experiments
 
-- 在 ALOHA 双臂低成本硬件上，ACT 仅用 **50 条示范**即可学会将积木放入另一只手、剥黄瓜等细粒度双手任务，成功率 80%+。对比 LSTM-GMM 与 IBC 等基线掉到 20% 以下。
-- **动作块长度 *k*** 的消融：*k*=1 退化为逐帧策略，*k* 过大则块间衔接不畅。*k*=100（对应约 2s @ 50Hz）是多任务的甜点。
-- Temporal Ensemble 提升约 15 pp 成功率；CVAE 的 *z* 维度较低即可（32）。
+- **平台与数据**：真机为 ALOHA 双臂（约 2 万美元级、开源），6 个细粒度真实任务 + 2 个仿真任务（Transfer Cube、Bimanual Insertion）；每任务约 50 条示范（Thread Velcro 用 100 条）。
+- **结果**：真实任务成功率大致落在 80–90%（单任务从 64% 到 96% 不等）。
+- **Baseline**：对比 **BC-ConvMLP、BeT（Behavior Transformer）、RT-1、VINN**（原笔记写的 LSTM-GMM / IBC 不是本文 baseline）。这些方法多数明显更低，但并非一律低于 20%（BeT 部分任务可达约 60%）。
+- **消融**：动作块长度 *k* = 100（对应 50Hz 下约 2s）是常用甜点；隐变量维度 32 足够。Temporal ensemble 有正向增益，但论文未给出可直接引用的固定百分点数值。
+- **超参更正**：KL 权重 **β = 10**（原笔记「0.01」有误）。
 
-**疑问或想继续看的**
+### Strengths and Limitations
 
-- CVAE 的 *z* 在推理时从先验采样，是否会出现 **"posterior collapse"**？论文用的 KL 权重较小 (β=0.01) 来缓解，但在更复杂分布下效果存疑。
-- 与 Diffusion Policy 的对比：两者都解决多模态问题，ACT 用 CVAE 瓶颈 + Transformer，DP 用迭代去噪。后续 ACT++ 尝试在动作块上叠加扩散，是否能两全？
-- Action Chunking 的思路后续被 π0-FAST、RDT 等大模型采用（FAST token 实际是频域压缩版动作块），说明这一设计有持续影响。
+**Strengths**：样本高效（约 50 条示范即可）；action chunking + temporal ensemble 直击复合误差并平滑轨迹；非自回归单次解码，推理可跟上 50Hz 实时控制；低成本开源硬件降低了双臂研究门槛。
+
+**局限（分析）**：评测集中在短时程桌面任务，*k* 需按域调参（反应性 vs. 平滑性权衡）；纯模仿、无在线纠错，性能上限受示范质量约束；单一 embodiment（ALOHA），跨机器人泛化非其目标。
+
+### Takeaways
+
+Action chunking 是这一批工作里最有生命力的设计之一，后续 DP、Octo、RDT 都在动作块上做文章；ACT 与 DP 分别用 CVAE 与扩散回答同一个「多模态」问题，为后面扩散路线埋下对照。
 
 ::::paper{tone="dp"}
 
 ## DP
 
-**论文：** *Diffusion Policy: Visuomotor Policy Learning via Action Diffusion*
-
-**主要机构：** Columbia University · MIT · Toyota Research Institute（按论文作者单位常见组合）
-
-**会议 / 年份：** Advances in Neural Information Processing Systems (NeurIPS)，2023
+**Diffusion Policy: Visuomotor Policy Learning via Action Diffusion**
 
 :::note[一句话]
-把**扩散模型**当动作分布：给定观测，通过去噪生成动作序列（或动作块），适合多峰分布与模仿学习。
+把动作序列的生成建模成一个**条件去噪扩散（conditional denoising diffusion）**过程：给定观测，从高斯噪声迭代去噪出动作块，天然表达多模态分布。
 :::
 
-**材料：** [Paper](https://arxiv.org/abs/2303.04137) · [Project](https://diffusion-policy.cs.columbia.edu/) · [Code](https://github.com/real-stanford/diffusion_policy) · 本地摘录：[Teaser](/blog/paper-node/Robot_Learning_1/DP/DP_teaser.pdf) · [策略输入输出](/blog/paper-node/Robot_Learning_1/DP/policy_input_output.pdf)
+**会议 / 年份** RSS 2023（Best Paper，后扩展为 IJRR 2024）｜ **机构** Columbia · Toyota Research Institute · MIT ｜ **方向** Diffusion policy, imitation learning ｜ **真机** ✅ UR5 · Franka
+
+**材料** [Paper](https://arxiv.org/abs/2303.04137) · [Project](https://diffusion-policy.cs.columbia.edu/) · [Code](https://github.com/real-stanford/diffusion_policy)
 
 ::::
 
@@ -113,68 +117,67 @@ Robot learning 论文阅读记录，对应本地资料目录 `assets/paper_note/
 <pre><code>@inproceedings{chi2023diffusion,
   title     = {Diffusion Policy: Visuomotor Policy Learning via Action Diffusion},
   author    = {Chi, Cheng and Xu, Zhenjia and Feng, Siyuan and Cousineau, Eric and Du, Yilun and Burchfiel, Benjamin and Tedrake, Russ and Song, Shuran},
-  booktitle = {Advances in Neural Information Processing Systems},
+  booktitle = {Robotics: Science and Systems},
   year      = {2023},
   url       = {https://arxiv.org/abs/2303.04137}
 }</code></pre>
 </details>
 
-**我记住的三点**
+> 注：代码仓库挂在 `real-stanford` 组织下（Shuran Song 实验室后迁至 Stanford），但**论文署名机构为 Columbia / TRI / MIT，不含 Stanford**。原笔记的「NeurIPS 2023」有误。
 
-1. **核心洞见——用扩散建模动作分布**：将 DDPM 的去噪过程直接用于动作空间，从高斯噪声逐步去噪为条件于观测的动作序列。相比显式回归（MSE loss）或混合高斯（GMM），扩散天然能表达**任意复杂的多模态分布**，不会出现模式平均（"抹平两个模式取中间"）的灾难性失败。
-2. **两种骨干实现等效**：论文提出 **CNN-based**（1D temporal U-Net）和 **Transformer-based** 两种去噪网络。前者把观测 embedding 通过 FiLM 条件化注入 U-Net 各层，后者把观测 token 与噪声动作 token 拼接做 cross-attention。二者在 11 个 benchmark 上表现相当，但 CNN 版推理更快。
-3. **观测历史窗口 + 动作预测视野（action horizon）**：策略接收最近 *T_o* 步观测，预测未来 *T_a* 步动作，但只执行前 *T_e* 步后重新规划。这一 **receding-horizon** 设计与 ACT 的动作块 + temporal ensemble 精神一致，使得策略既有前瞻又有反应性。
+### Motivation
 
-**方法 / 实现（想写再写）**
+行为克隆（behavior cloning）面对多模态示范时会「取中间」：同一局面可以左推也可以右推，回归（MSE）或混合高斯（GMM）会把两个模式平均成一个都不对的动作。DP 的出发点是用扩散过程直接学习动作分布的（近似）梯度，通过迭代去噪表达任意复杂的多模态分布，同时保持训练稳定。
 
-![Diffusion Policy Teaser](/blog/paper-node/Robot_Learning_1/DP/DP_teaser.png)
+### Method
 
-![Diffusion Policy 输入输出](/blog/paper-node/Robot_Learning_1/DP/policy_input_output.png)
+- **动作空间上的 DDPM**：训练一个噪声预测网络 $\epsilon_\theta(a_k, o, k)$，学习在扩散第 *k* 步加到动作上的噪声（标准 DDPM 目标），推理时从高斯噪声迭代去噪成动作序列。
+- **两种去噪骨干**：CNN 版（1D temporal U-Net，观测经 FiLM 条件化）与 Transformer 版（改自 minGPT）。论文的结论不是简单的「CNN 更快」，而是：**CNN U-Net 是好调、鲁棒的默认选择，但对高频/快速变化的动作较弱；Transformer 在这类任务上更好，但对超参更敏感**。
+- **视觉编码**：ResNet-18（从零训练），把全局平均池化换成 spatial-softmax、BatchNorm 换成 GroupNorm 以稳定 EMA。
+- **Receding horizon**：观测窗口 $T_o$、预测视野 $T_p$、执行步数 $T_e$；常用 $T_o=2, T_p=16, T_e=8$，推理用 DDIM 10 步即可保持性能。
 
-训练：
-- 从数据集 *(o, a)* 采样一对，给 *a* 加 *k* 步噪声得到 *a_k*，训练去噪网络 *ε_θ(a_k, o, k)* 预测噪声（标准 DDPM 目标）。
-- 观测侧用 ResNet-18/34 提取图像特征，低维状态直接拼接。
+![Diffusion Policy Teaser](/blog/paper-note/Robot_Learning_1/DP/DP_teaser.png)
 
-推理：
-- 初始化 *a_K ~ N(0, I)*，迭代去噪 *K* 步（典型 100 步 DDPM 或 10–20 步 DDIM）。
-- 取预测动作序列的前 *T_e* 步执行，滑窗前进。
+![Diffusion Policy 输入输出](/blog/paper-note/Robot_Learning_1/DP/policy_input_output.png)
 
-关键超参：*T_o*=2, *T_a*=16, *T_e*=8 是多任务常见设置；去噪步数用 DDIM 缩到 10 步仍保持性能。
+### Experiments
 
-**实验里印象最深**
+- **仿真**：**12 个任务、4 类 benchmark**（Robomimic、Push-T、Multimodal Block Pushing、Franka Kitchen），相对已有方法平均成功率提升约 **46.9%**。
+- **Push-T** 是刻意设计的多模态任务：MSE 回归几乎失败、GMM 也差，DP 大幅领先——直观说明为何需要多模态动作建模。
+- **Baseline**：LSTM-GMM、IBC、BET 等，DP 全面更优且训练更稳（无 IBC 的能量模型不稳定问题）。
+- **真机**：UR5（真实 Push-T）与 Franka（含多阶段「倒/抹酱」任务）。
+- **推理**：DDIM 10 步约 0.1s（RTX 3080）。原笔记「DDIM 0.02s / DDPM 100 步 0.2s」不准确，论文未报 0.2s 这一数字。
 
-- **Push-T 任务**上 MSE 回归完全失败（因为多模态——同一局面可左推或右推），GMM 也很差，而 Diffusion Policy 的覆盖率和成功率大幅领先。这个例子非常直观地说明了为什么需要**多模态动作建模**。
-- 在 **RobotMimic 和真机**（Franka + UR5）上全面优于 IBC、BET、LSTM-GMM，且不需要额外的回放或 DAgger。
-- 推理延迟：DDPM 100 步约 0.2s，DDIM 10 步约 0.02s，足够 10–50Hz 控制循环。
+### Strengths and Limitations
 
-**疑问或想继续看的**
+**Strengths**：自然表达多模态、避免模式平均；训练稳定；能处理高维、时间连贯的动作序列；跨 12 个仿真任务与两类真机验证充分。
 
-- 扩散的去噪步数与动作维度的关系：对高自由度机器人（如双臂 14-DoF + 手指）是否需要更多去噪步或更大网络？
-- 与 Flow Matching 的对比：π0 用了 Flow Matching 替代 DDPM，声称训练更稳、采样路径更短。两者在机器人策略上的系统性对比还不够。
-- DP 的采样噪声可以看作一种**内在探索**，但论文场景全是离线模仿，没有在线 RL；后续 DPPO 等开始在扩散策略上做策略梯度。
+**局限（分析）**：迭代去噪比单步回归更贵，需 DDIM 才能接近实时（仍约 0.1s/次）；骨干与视野选择敏感；纯行为克隆，受示范覆盖约束；主设定下视觉编码器从零训练，未用大规模预训练。
+
+### Takeaways
+
+DP 确立了「用扩散建模机器人动作分布」的范式，是 DP3、Octo 扩散头、RDT 的共同源头。它与 ACT 一同把「动作序列 + receding horizon」变成事实标准。
 
 ::::paper{tone="dp3"}
 
 ## DP3
 
-**论文：** *3D Diffusion Policy: Generalizable Visuomotor Policy Learning with Simple 3D Representations*
-
-**主要机构：** Stanford University（REAL Robotics）
-
-**会议 / 年份：** Robotics: Science and Systems (RSS)，2024
+**3D Diffusion Policy: Generalizable Visuomotor Policy Learning via Simple 3D Representations**
 
 :::note[一句话]
-在**点云等 3D 表征**上做扩散策略，强调泛化；可看作 DP 在几何感知上的延伸（常写作 DP³）。
+在**稀疏点云**上做扩散策略：用一个极简的 3D 编码器把点云压成紧凑特征来条件化扩散，换取更好的泛化与样本效率。
 :::
 
-**材料：** [Paper](https://arxiv.org/abs/2403.03954) · [Project](https://real-stanford.github.io/dp3/) · [Code](https://github.com/real-stanford/dp3) · 本地摘录：[方法总览](/blog/paper-node/Robot_Learning_1/DP3/method_v3.pdf)
+**会议 / 年份** RSS 2024 ｜ **机构** 上海期智研究院 · 上海交通大学 · 清华大学 IIIS · 上海人工智能实验室 ｜ **方向** 3D diffusion policy ｜ **真机** ✅ Franka + Allegro 灵巧手
+
+**材料** [Paper](https://arxiv.org/abs/2403.03954) · [Project](https://3d-diffusion-policy.github.io/) · [Code](https://github.com/YanjieZe/3D-Diffusion-Policy)
 
 ::::
 
 <details class="paper-bibtex-fold">
 <summary>BibTeX</summary>
 <pre><code>@inproceedings{ze2024dp3,
-  title     = {3D Diffusion Policy: Generalizable Visuomotor Policy Learning with Simple 3D Representations},
+  title     = {3D Diffusion Policy: Generalizable Visuomotor Policy Learning via Simple 3D Representations},
   author    = {Ze, Yanjie and Zhang, Gu and Zhang, Kangning and Hu, Chenyuan and Wang, Muhan and Xu, Huazhe},
   booktitle = {Robotics: Science and Systems},
   year      = {2024},
@@ -182,50 +185,49 @@ Robot learning 论文阅读记录，对应本地资料目录 `assets/paper_note/
 }</code></pre>
 </details>
 
-**我记住的三点**
+> 注：原笔记把项目页 / 代码写成 `real-stanford.github.io/dp3` 与 `real-stanford/dp3`，均**无效**；机构也非 Stanford。正确链接与机构已如上更正。
 
-1. **从 2D 到 3D 的核心动机**：DP 依赖 2D 图像，对**视角变化、光照变化、遮挡**的泛化有限。DP3 的关键是用深度相机获取点云，直接在 **3D 表征**上条件化扩散策略。点云天然对视角不变（相机外参补偿后），也包含了接触面的几何信息。
-2. **简洁的 3D 编码器**：不使用复杂的 NeRF 或体素网格，而是用 **PointNet++ / Point Transformer** 对原始点云（下采样到 ~1024 点）编码为 compact 特征向量。这个设计刻意保持**轻量**，训练数据需求与 DP 相当。
-3. **泛化性的跃升**：相比 2D DP 在「换相机视角」「换物体颜色/纹理」上成功率暴跌，DP3 在这些设置下几乎不掉点。更关键的是，DP3 在**新物体形态**（训练时没见过的杯子/瓶子）上仍能完成抓取和放置，说明 3D 几何是比 2D 纹理更好的泛化信号。
+### Motivation
 
-**方法 / 实现（想写再写）**
+DP 依赖 2D 图像，对视角、光照、纹理变化的泛化有限。DP3 的设想是：几何比纹理更稳定的泛化信号——用一台深度相机得到点云，直接在 3D 表征上条件化扩散策略，从而在更少示范下获得更好的泛化与安全性。
 
-![DP3 方法概览](/blog/paper-node/Robot_Learning_1/DP3/method_v3.png)
+### Method
 
-整体流程：
-1. **感知**：RGBD 相机 → 点云（去背景、下采样）→ PointNet++ 编码器 → 3D 特征 *f_3d*。
-2. **策略**：与 DP 相同的条件扩散框架：去噪网络 *ε_θ(a_k, f_3d, k)*，1D temporal U-Net 骨干。
-3. **执行**：同 DP 的 receding-horizon，取前 *T_e* 步动作执行。
+- **3D 输入**：单深度相机的稀疏点云，用**最远点采样（FPS）**下采到 **512 或 1024 点**。
+- **DP3 Encoder（关键更正）**：并非 PointNet++ / Point Transformer，而是一个**三层 MLP + max-pooling（顺序等变）+ 投影头**，输出 64 维紧凑向量。「简单」正是其核心卖点。
+- **去噪网络**：与 DP 相同的条件扩散 + 1D temporal U-Net，训练 100 步、推理 DDIM 10 步。与 DP 的差异**仅在观测编码**，故代码改动很小。
 
-与 DP 的差异仅在**观测编码**——图像换成点云 + PointNet++。去噪网络、噪声调度、训练目标完全相同，因此代码改动很小。
+![DP3 方法概览](/blog/paper-note/Robot_Learning_1/DP3/method_v3.png)
 
-**实验里印象最深**
+### Experiments
 
-- **MetaWorld + Adroit** 仿真上 72 个任务，DP3 在 **camera pose 随机化** 下平均成功率比 DP 高 25+ pp。
-- 在真机 **Franka** 上做「抓不同颜色/形状马克杯」实验：DP 换杯子后成功率掉到 30%，DP3 保持 85%+。
-- 点云数量的消融：512 → 1024 → 4096 点提升微弱，说明 1024 点已经足够表示桌面操作场景。
+- **仿真**：**72 个任务、跨 7 个域**（Adroit、Bi-DexHands、DexArt、DexDeform、DexMV、HORA、MetaWorld）；每任务仅 **10 条示范**时相对 baseline 约 **+24.2%**（相对提升）。
+- **真机**：Franka 机械臂 + Allegro 灵巧手（RealSense L515），**4 个任务**、每任务 40 条示范：Roll-Up 90%、Dumpling 70%、Drill 80%、Pour 100%，**平均 85%**。
+- **更正**：原笔记的「换马克杯 DP 30% / DP3 85%」中，**马克杯任务并不存在**；85% 是上述 4 个真机任务的平均。「相机位姿随机化 +25pp」「512/1024/4096 点消融」在论文中**未核到精确数值**，此处不引用。
 
-**疑问或想继续看的**
+### Strengths and Limitations
 
-- 点云质量高度依赖深度相机精度。在工业场景（金属反光、透明物体）下深度缺失严重时，DP3 的鲁棒性会否退化？是否需要深度补全预处理？
-- DP3 的 3D 特征是全局特征向量，没有显式的**关键点或部件对应**。与 ReKep、CoPa 等显式约束方法结合后是否能进一步提升？
-- 能否用 DINOv2/DINOv3 的稠密特征做「伪 3D」代替真点云？减少对深度相机的依赖。
+**Strengths**：编码器极轻（3 层 MLP），无重型 3D 骨干；样本高效（10 条示范即有效）；相对 2D DP 在视角/实例/外观变化下泛化更好、安全违规更少。
+
+**局限（分析）**：依赖标定良好、干净的点云，对深度噪声、透明/反光物体敏感；单视角稀疏点云，性能与裁剪、点云质量强相关；扩散推理成本仍在（靠 10 步 DDIM 缓解）。
+
+### Takeaways
+
+DP3 的价值在于「简单 3D 表征也能显著提升泛化」，而不是堆更复杂的 3D backbone。它提示：当任务对几何敏感时，换观测表征往往比换策略更有效。
 
 ::::paper{tone="rt1"}
 
 ## RT-1
 
-**论文：** *RT-1: Robotics Transformer for Real-World Control at Scale*
-
-**主要机构：** Google DeepMind / Google Robotics（大规模机器人数据团队）
-
-**会议 / 年份：** Robotics: Science and Systems (RSS)，2023
+**RT-1: Robotics Transformer for Real-World Control at Scale**
 
 :::note[一句话]
-**可吃大规模异构示范**的机器人 Transformer：图像历史 + 语言指令 → 离散动作 token；体现机器人里的 **scaling** 思路，为 RT-2 铺路。
+**可消化大规模异构真机数据**的机器人 Transformer：图像历史 + 语言指令 → 离散动作 token，体现机器人里的 scaling 思路，为 RT-2 铺路。
 :::
 
-**材料：** [Paper](https://arxiv.org/abs/2212.06817) · [Project](https://robotics-transformer.github.io/) · [Code](https://github.com/google-research/robotics_transformer) · 本地摘录：[完整模型](/blog/paper-node/Robot_Learning_1/RT-1/rt1_full_model.pdf) · [Teaser 模型](/blog/paper-node/Robot_Learning_1/RT-1/rt1_teaser_model.pdf)
+**会议 / 年份** RSS 2023 ｜ **机构** Google（Robotics at Google + Everyday Robots）｜ **方向** Robot Transformer, imitation learning ｜ **真机** ✅ Everyday Robots 移动操作机
+
+**材料** [Paper](https://arxiv.org/abs/2212.06817) · [Project](https://robotics-transformer1.github.io/) · [Code](https://github.com/google-research/robotics_transformer)
 
 ::::
 
@@ -240,306 +242,323 @@ Robot learning 论文阅读记录，对应本地资料目录 `assets/paper_note/
 }</code></pre>
 </details>
 
-**我记住的三点**
+> 注：原笔记项目页 `robotics-transformer.github.io` 缺了「1」；官方页为 `robotics-transformer1.github.io`。
 
-1. **动作离散化为 token**：将连续动作空间（末端位移 Δx/y/z、旋转、夹爪开合等）各维度分别**均匀离散化为 256 个 bin**，每维一个 token，用分类交叉熵训练。这比回归更稳定，且能直接复用 Transformer 的 softmax token 预测。代价是精度受 bin 数限制，但 256 bin 在厘米级位移下已足够。
-2. **大规模真实数据的价值**：RT-1 收集了来自 **13 台移动操作机器人**、**130k+ 条真实示范** 的数据集，涵盖 700+ 个语言指令和抓取、放置、开关抽屉等任务。数据规模是关键——同样架构在小数据上表现一般，但在 130k 示范上泛化到新指令和新物体的能力质变式提升。
-3. **EfficientNet + TokenLearner 的高效视觉骨干**：用预训练 **EfficientNet-B3** 提取图像特征，再通过 **TokenLearner** 将特征图压缩为少数 token（8 个），大幅降低 Transformer 序列长度。这使得模型能处理 6 帧图像历史而不爆显存。
+### Motivation
 
-**方法 / 实现（想写再写）**
+把视觉/NLP 里「大而多样的数据 → 通才模型」的配方搬到机器人：让单个 Transformer 策略吸收大规模、任务无关的真机数据，零样本泛化到新任务、新物体、新环境，并能融合仿真与异构机器人的数据，同时吞吐量要够在真机上实时运行。
 
-![RT-1 Teaser](/blog/paper-node/Robot_Learning_1/RT-1/rt1_teaser_model.png)
+### Method
 
-![RT-1 完整模型](/blog/paper-node/Robot_Learning_1/RT-1/rt1_full_model.png)
+- **动作离散为 token**：每个动作维度均匀离散为 **256 个 bin**，每维一个 token，用交叉熵训练。
+- **11 维动作空间**（原笔记只提末端执行器，不完整）：7 维手臂（x/y/z、roll/pitch/yaw、夹爪）+ 3 维底盘（x/y/yaw）+ 1 维模式切换（控臂 / 控底盘 / 终止）。
+- **高效视觉骨干**：EfficientNet-B3 提特征，语言经 Universal Sentence Encoder 编码并以 FiLM 注入，TokenLearner 把每帧压成 **8 个 token**；6 帧历史共 48 token，送入 8 层 decoder-only Transformer。
+- **实时性**：约 **3 Hz**（原笔记「5Hz」有误）；参数量约 35M。
 
-架构流程：
-1. **语言编码**：指令经 Universal Sentence Encoder 编码为固定向量，FiLM 方式注入每帧的视觉特征。
-2. **视觉编码**：每帧图像 → EfficientNet-B3 → TokenLearner → 8 个 token。6 帧共 48 token。
-3. **Transformer**：8 层 self-attention，输出 → 线性头 → 各维度动作 bin 的分类 logits。
-4. **推理**：取 argmax 或加温度采样，解码为连续动作值（bin 中心值）。
+![RT-1 Teaser](/blog/paper-note/Robot_Learning_1/RT-1/rt1_teaser_model.png)
 
-关键设计选择：
-- 6 帧历史（间隔为最近 6 步 @ 3Hz）提供短期运动信息。
-- 推理约 5Hz（Transformer 部分 ~30ms，加视觉约 200ms），足够桌面操作。
+![RT-1 完整模型](/blog/paper-note/Robot_Learning_1/RT-1/rt1_full_model.png)
 
-**实验里印象最深**
+### Experiments
 
-- RT-1 在 Google 内部办公环境中部署，在 **200+ 个长程任务链** 上（如「把可乐放进抽屉」→「关抽屉」）达到 97% 单步成功率。
-- 与 Gato、BC-Z 等对比：RT-1 在 **unseen 物体**上成功率 76%（Gato 33%），**unseen 背景**上 59%（Gato 2%），差距悬殊。
-- 数据量消融：从 10% 数据到 100% 数据，成功率从 ~50% 上升到 ~97%，几乎线性。
+- **数据**：约 **13 万条示范**、**13 台机器人**、**700+（744）条指令**，历时 17 个月采集。
+- **主结果与 baseline**（成功率）：
 
-**疑问或想继续看的**
+| 方法 | Seen | Unseen 指令 | Distractors | Backgrounds |
+|:--|:--:|:--:|:--:|:--:|
+| **RT-1** | 97% | 76% | 83% | 59% |
+| BC-Z | 72% | 19% | 47% | 41% |
+| Gato | 65% | 52% | 43% | 35% |
 
-- 动作离散化的精度瓶颈：256 bin 对粗操作够用，但对灵巧操作（如毫米级插入）可能不够。RT-2 之后的 π0-FAST 转向**频域离散化**来提升精度。
-- RT-1 是纯机器人数据训练，没有利用互联网级 VLM 预训练。RT-2 的核心改进就是把 PaLI-X / PaLM-E 的知识迁移进来。
-- 这种「大量真实数据 + 简单架构」的路线在工业界可复制性有限——130k 条真实示范的采集成本极高。
+> 更正：原笔记「Gato 33%（unseen）/ 2%（backgrounds）」为杜撰值；实际 Gato 分别为 52% 与 35%。RT-1 的 76% 指的是 **unseen 指令/任务**，非「unseen 物体」。
+- **数据规模消融**：论文的核心结论是**数据多样性比数据量更重要**（砍掉 25% 任务类型的伤害≈砍掉约一半数据量）。原笔记「10%→100%: 50%→97%」不是真实数据点（最小测试比例约 22%，对应 seen 59%），此处按论文结论重述。
+
+### Strengths and Limitations
+
+**Strengths**：吸收大规模、多样真机数据且有正向 scaling；对 unseen 指令、干扰物、背景的泛化明显强于 BC-Z / Gato；能融合仿真和异构（如 Kuka）数据而不损原有技能；3 Hz、<100ms 推理，可实时闭环。
+
+**局限（分析）**：纯模仿，无法超过示范水平；泛化是「已见概念的新组合」，非真正的新动作/新技能；数据采集极昂贵（17 个月、13 台机器人）；灵巧度与时程有限，单一 embodiment。
+
+### Takeaways
+
+RT-1 证明了机器人领域「数据规模 + 简单架构」可行，但也暴露采集成本问题；它没用互联网级预训练——这正是 RT-2 要补的短板。
 
 ::::paper{tone="rt2"}
 
 ## RT-2
 
-**论文：** *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*
-
-**主要机构：** Google DeepMind
-
-**会议 / 年份：** Conference on Robot Learning (CoRL)，2023
+**RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control**
 
 :::note[一句话]
-把 **VLM 与机器人动作**联训：动作表示为文本 token，继承互联网级视觉–语言知识，强调对新物体与语义指令的泛化与涌现行为。
+让**大型 VLM 直接输出机器人动作**：把动作编码为文本 token 加入词表，在互联网 VQA 数据 + 机器人示范上 co-fine-tune，从而继承 VLM 的语义理解与推理。
 :::
 
-**材料：** [Paper](https://arxiv.org/abs/2307.15818) · [Project](https://deepmind.google/discover/blog/rt-2-new-model-translates-vision-and-language-into-action/) · Code（以官方发布为准） · 本地摘录：[Teaser](/blog/paper-node/Robot_Learning_1/RT-2/rt2_teaser.pdf)
+**会议 / 年份** CoRL 2023 ｜ **机构** Google DeepMind ｜ **方向** VLA, web-knowledge transfer ｜ **真机** ✅ Everyday Robots 移动操作机 ｜ **代码** 无官方开源
+
+**材料** [Paper](https://arxiv.org/abs/2307.15818) · [Project](https://robotics-transformer2.github.io/)
 
 ::::
 
 <details class="paper-bibtex-fold">
 <summary>BibTeX</summary>
-<pre><code>@inproceedings{zitkovich2023rt2,
+<pre><code>@inproceedings{brohan2023rt2,
   title     = {{RT-2}: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control},
-  author    = {Zitkovich, Brianna and others},
+  author    = {Brohan, Anthony and others},
   booktitle = {Conference on Robot Learning},
   year      = {2023},
   url       = {https://arxiv.org/abs/2307.15818}
 }</code></pre>
 </details>
 
-**我记住的三点**
+### Motivation
 
-1. **VLM 即 VLA 的思路**：RT-2 的关键洞见——**大型 VLM（PaLI-X 55B / PaLM-E 12B）本身就可以输出机器人动作**，只要把动作编码为文本 token 加入词表（如 `<action_bin_128>`），然后在混合的「互联网 VQA 数据 + 机器人示范数据」上做 co-fine-tuning。这使得模型继承了 VLM 的**语义理解**和**视觉推理**能力。
-2. **涌现的推理与泛化**：RT-2 展示了 RT-1 无法完成的能力——如理解「把垃圾扔进垃圾桶」（需要识别哪个物体是垃圾）、「移动到名画旁边」（需要视觉常识）、甚至**链式推理**（先推断目标再执行动作）。这些能力来自 VLM 预训练，并非机器人数据中显式存在的。
-3. **动作 token 化的方案**：每个维度（x, y, z, roll, pitch, yaw, gripper）离散化为 256 bin，用特殊 token 表示。一步动作 = 7–8 个 token 的文本序列。VLM 的自回归生成直接输出这些 token，解码后变成连续动作。
+传统「感知 + 策略」栈难以把互联网级语义带进控制。RT-2 的洞见是：既然大型 VLM 已经会视觉推理和常识，就让它**直接以文本 token 的形式吐出动作**，用一个模型同时做 web VQA 与机器人控制，让语义能力自然迁移到操作上。
 
-**方法 / 实现（想写再写）**
+### Method
 
-![RT-2 Teaser](/blog/paper-node/Robot_Learning_1/RT-2/rt2_teaser.png)
+- **backbone**：两个变体，RT-2-PaLI-X（55B）与 RT-2-PaLM-E（12B）。
+- **动作 token 化**：**8 维**（6-DoF 末端位移 + 夹爪 + **终止**指令，原笔记漏了终止维），每维离散 256 bin，一步 = **8 个整数 token**（例 `1 128 91 241 5 101 127`）。VLM 自回归生成这些 token，解码为连续动作。
+- **co-fine-tuning**：混合互联网 VQA 数据与机器人示范，让 VLM 既保住语义能力又学会控制。混合比例并非统一 50/50——机器人数据在 PaLI-X 中约占 **50%**，在 PaLM-E 中约占 **66%**。
 
-核心流程：
-1. **输入**：当前图像 + 语言指令（如 "pick up the bag on the left"）。
-2. **VLM backbone**：PaLI-X 或 PaLM-E 做 vision-language encoding。
-3. **输出**：自回归生成动作 token 序列（7–8 个 token/步）。
-4. **训练**：多任务混合——约 50% 互联网 VQA 数据 + 50% 机器人示范数据。VQA 数据保持 VLM 能力不退化，机器人数据教会模型输出动作。
+![RT-2 Teaser](/blog/paper-note/Robot_Learning_1/RT-2/rt2_teaser.png)
 
-与 RT-1 对比：
-- RT-1 的视觉骨干（EfficientNet）从零训练或 ImageNet 预训练；RT-2 的骨干是 **55B 参数的 VLM**，知识量差若干数量级。
-- RT-1 只理解训练集中见过的指令模板；RT-2 能处理**自由形式的语言**和**隐含推理**。
+### Experiments
 
-**实验里印象最深**
+- **涌现能力评测**（RT-2-PaLI-X-55B）：Symbol Understanding 82%、Reasoning 46%、Person Recognition 53%，**平均约 60%**；对照 RT-1 约 17%、VC-1 约 11%。
 
-- **涌现能力的 eval**：在 RT-2 独有的「语义推理」任务上（如 "pick the fruit that's not an apple"），RT-2 成功率约 62%，而 RT-1 和直接微调的 VLM 均为 0%。
-- 在 RT-1 数据集的标准任务上，RT-2 (PaLI-X 55B) 成功率略高于 RT-1 (~1–3 pp)，说明 VLM 预训练没有**损害**原有操作能力。
-- **规模律**：PaLI-X 55B > PaLM-E 12B > 5B 版本，在涌现任务上差距尤为明显。
+> 更正：原笔记「RT-2 62% vs RT-1 与 VLM 微调均 0%」中，**baseline 不是 0%**（RT-1≈17%、VC-1≈11%）；论文的说法是在涌现/语义任务上约 **3×** 于 baseline。
+- **泛化**：A/B 评测中约 **2×** 于 baseline；标准 RT-1 任务上与 RT-1 基本持平（未因 VLM 预训练损害操作能力）。
+- **规模**：PaLI-X-55B（约 63%）与 PaLM-E-12B（约 62%）在 unseen 泛化上基本打平，且 **PaLM-E 在更难的场景上更好**——不宜简单断言「55B > 12B」。
+- **真机**：约 6000 次评测试验，7-DoF 移动操作机；Language-Table 上刷新 SoTA（90% vs 77%）。
 
-**疑问或想继续看的**
+### Strengths and Limitations
 
-- 55B 参数模型的**推理延迟与部署成本**：论文没给实时性数据，但推测单步推理需要数百毫秒到秒级。与 DP 的 10–50Hz 相比差距很大。后续 OpenVLA (7B)、TinyVLA 正是为解决这个问题。
-- 动作 token 化的精度问题与 RT-1 相同——256 bin 在灵巧任务上是否够？FAST 方法（频域 token）就是为了在自回归框架下提升动作精度。
-- **数据混合比例**的敏感性：互联网数据太多会让模型「忘记」怎么控制机器人，太少则不能迁移知识。最优比例与任务分布相关。
+**Strengths**：统一 VLA，一套模型兼做 VQA 与控制；强语义泛化与推理（涌现约 3×、泛化约 2×）；co-fine-tuning 保住 web 知识；支持链式推理执行多步语义指令；真机评测规模大。
+
+**局限（分析）**：只带来语义泛化，**不产生新的物理技能**（动作仍受机器人数据限制）；模型巨大（至 55B），实时推理需云端 TPU，频率受限；闭源、无权重与代码；依赖 RT-1 级别的示范数据。
+
+### Takeaways
+
+RT-2 定义了 VLA 范式，但把两个问题留给后人：**部署成本**（催生 OpenVLA、TinyVLA 等轻量路线）与**开源**（催生 OpenVLA）。
 
 ::::paper{tone="octo"}
 
 ## Octo
 
-**论文：** *Octo: An Open-Source Generalist Robot Policy*
-
-**主要机构：** UC Berkeley · Stanford · CMU · Google DeepMind 等（Open X-Embodiment 合作线）
-
-**会议 / 年份：** arXiv 2024 / 机器人学习社区常作通才策略基线（正式收录请以论文页为准）
+**Octo: An Open-Source Generalist Robot Policy**
 
 :::note[一句话]
-基于 Transformer 的**通才操作策略**，在 Open X-Embodiment 等大规模数据上预训练；支持语言/目标图像条件与多机形态，**扩散式动作头**生成动作分布。
+开源的**跨 embodiment 通才策略**：模块化 Transformer + 扩散动作头，在 Open X-Embodiment 上预训练，可在消费级 GPU 上数小时内微调到新机器人。
 :::
 
-**材料：** [Paper](https://arxiv.org/abs/2405.12213) · [Project](https://octo-models.github.io/) · [Code](https://github.com/octo-models/octo) · 本地摘录：[架构图](/blog/paper-node/Robot_Learning_1/Octo/architecture.pdf)
+**会议 / 年份** RSS 2024 ｜ **机构** UC Berkeley · Stanford · CMU · Google DeepMind ｜ **方向** 开源通才策略, diffusion head ｜ **真机** ✅ 9 套真机 / 4 家机构（WidowX、UR5、Franka 等）
 
+**材料** [Paper](https://arxiv.org/abs/2405.12213) · [Project](https://octo-models.github.io/) · [Code](https://github.com/octo-models/octo)
 ::::
 
 <details class="paper-bibtex-fold">
 <summary>BibTeX</summary>
-<pre><code>@misc{octo2024,
-  title         = {Octo: An Open-Source Generalist Robot Policy},
-  author        = {Mees, Oier and Walters, Dibya and Jayaraman, Dinesh and Mandlekar, Ajay and Li, Yifeng and Li, Pieter and Chen, Yiming and Gupta, Animesh and Ye, Yuke and Hausman, Karol and others},
-  year          = {2024},
-  eprint        = {2405.12213},
-  archivePrefix = {arXiv},
-  url           = {https://arxiv.org/abs/2405.12213}
+<pre><code>@inproceedings{octo2024,
+  title     = {Octo: An Open-Source Generalist Robot Policy},
+  author    = {{Octo Model Team} and Ghosh, Dibya and Walke, Homer and Pertsch, Karl
+               and Black, Kevin and Mees, Oier and Dasari, Sudeep and Hejna, Joey
+               and Xu, Charles and Luo, Jianlan and Kreiman, Tobias and Tan, You Liang
+               and Sanketi, Pannag and Vuong, Quan and Xiao, Ted and Sadigh, Dorsa
+               and Finn, Chelsea and Levine, Sergey},
+  booktitle = {Robotics: Science and Systems},
+  year      = {2024},
+  url       = {https://arxiv.org/abs/2405.12213}
 }</code></pre>
 </details>
 
-**我记住的三点**
+### Motivation
 
-1. **开源通才策略的定位**：Octo 不追求单一任务 SOTA，而是要做一个「拿来就能微调」的**预训练基础模型**。在 Open X-Embodiment（25 个 embodiment、800k+ 条 episode）上预训练后，用户只需少量目标域数据微调即可部署到自己的机器人上。
-2. **模块化 Transformer 架构**：把输入分为 **task tokens**（语言 / 目标图像）和 **observation tokens**（当前图像 + 本体感觉），分别编码后送入 Transformer backbone 做 cross-attention。输出端接 **diffusion action head**（小型去噪网络），生成连续动作。这种模块化使得切换 embodiment 时只需改动 action head 的维度。
-3. **微调效率**：Octo 设计了「**readout token**」机制——在 Transformer 序列中插入可学习 token，微调时只更新这些 token + action head 参数，冻结 backbone。这类似 LoRA 的精神，使得微调 Octo 到新任务只需几分钟 GPU 时间。
+RT-2 这类强通才策略闭源且昂贵。Octo 想做一个**完全开源**、拿来即可高效微调的通才策略：在大规模异构机器人数据上预训练，让用户用少量目标域数据、在消费级 GPU 上几小时内适配到自己的机器人、传感器与动作空间。
 
-**方法 / 实现（想写再写）**
+### Method
 
-![Octo 架构](/blog/paper-node/Robot_Learning_1/Octo/architecture.png)
+- **模块化输入**：**task tokens**（语言 / 目标图像）+ **observation tokens**（图像 + 本体感觉），送入 Transformer backbone。
+- **扩散动作头**：接在 readout token 上的扩散头，输出连续多模态动作（动作块，预测未来 4 步）。
+- **readout token + 块状注意力（block-wise attention）**：readout token 只「读」前面的观测/任务 token 而不被它们读，从而可以增删观测/任务/头而不扰乱已训练 token 的语义——这是 Octo 易扩展的关键。
+- **规模与组件**：Octo-Small 27M / Octo-Base 93M；语言用 **T5-base**；图像 tokenizer 是**浅层卷积 + patch**（并非 ResNet/ViT）。
+- **微调（更正）**：论文推荐**更新全模型**，且其效果优于冻结部分参数；原笔记「冻结 backbone、只更新 readout + 动作头、类 LoRA」的说法不成立——readout/块状设计是为了「加头/加输入」方便，不是冻结方案。
 
-架构要点：
-- **视觉编码**：每个相机的图像经 ResNet / ViT 编码为 token 序列。支持多相机（如腕部 + 第三人称）。
-- **语言编码**：T5 encoder 输出的语言 embedding 作为 task token 拼入。
-- **Transformer backbone**：标准 decoder-only，约 27M / 93M 两个版本。
-- **Diffusion action head**：接在 readout token 上，小型 MLP 去噪网络，预测 action chunk。
+![Octo 架构](/blog/paper-note/Robot_Learning_1/Octo/architecture.png)
 
-训练数据处理：
-- Open X-Embodiment 数据统一到「image + language + action」三元组，不同 embodiment 的动作空间通过 padding + mask 处理。
-- 训练约在 64 TPU 上跑数天。
+### Experiments
 
-**实验里印象最深**
+- **预训练数据**：Open X-Embodiment，**25 个数据集**的精选混合，约 **80 万条 episode**（应表述为「25 个数据集、覆盖多种 embodiment」，而非「25 个 embodiment」）。
+- **对比**：相对 RT-1-X（35M）平均高约 29%；与**大得多的 RT-2-X（55B）表现相当**（原笔记「落后约 10pp」无依据）；参数量差约 **600×**（近 3 个数量级，而非 2 个），且完全开源。
+- **动作头消融**：扩散头在多模态任务上明显优于 MSE / 离散 token 头（方向明确；具体百分比以论文表格为准）。
+- **真机**：9 套真机 / 4 家机构，含 WidowX、UR5、Franka；零样本 WidowX 约 0.50，微调后 6 任务平均约 0.72。
 
-- **微调对比**：Octo 预训练 → 微调 vs 从零训练 DP / RT-1。在 WidowX（桌面操作）、Franka（双臂）上，Octo 微调用 100 条示范即可达到从零训练 1000 条的效果。
-- 与 RT-2-X（闭源 55B）对比：在 Open X-Embodiment 评估上 Octo 落后 ~10 pp，但参数量小两个数量级，且完全开源。
-- Diffusion head vs MSE head vs GMM head 消融：扩散头在多模态任务上明显更好，单模态任务上三者持平。
+### Strengths and Limitations
 
-**疑问或想继续看的**
+**Strengths**：首个此规模的**全开源**（权重 + 数据管线 + 代码）跨 embodiment 通才策略；模块化设计使微调到新传感器/动作空间很快；扩散头擅长多模态动作；轻量（27M–93M），单张 RTX 4090 可跑（13–17 it/s）。
 
-- Octo 的训练数据量（800k+）足够大，但数据质量参差。Open X-Embodiment 中一些旧数据集的标注质量差，是否拖后腿？
-- 与后续的 OpenVLA 对比：OpenVLA 用 VLM（Llama 2 + SigLIP + DINOv2）替代了 Octo 的 ResNet + T5，语义理解更强。Octo 的优势在于轻量和微调速度。
-- 能否把 Octo 的 diffusion head 换成 FAST head？π0-FAST 证明自回归 token 在灵巧任务上可与扩散匹敌。
+**局限（分析）**：相对超大的 RT-2-X 是「相当」而非碾压，难任务绝对成功率仍有限；对相机/观测配置敏感；语言 grounding 受冻结 T5-base 限制；异构动作空间的混合仍具挑战。
+
+### Takeaways
+
+Octo 与 OpenVLA 是开源双子星：前者轻量、微调快、偏几何/操作泛化；后者重 VLM、偏语义。Octo 的 readout/块状注意力是一种优雅的「可扩展 Transformer」工程范式。
 
 ::::paper{tone="openvla"}
 
 ## OpenVLA
 
-**论文：** *OpenVLA: An Open-Source Vision-Language-Action Model*
-
-**主要机构：** Stanford 等（Open X-Embodiment / 开源 VLA 代表）
-
-**会议 / 年份：** Conference on Robot Learning (CoRL)，2025
+**OpenVLA: An Open-Source Vision-Language-Action Model**
 
 :::note[一句话]
-开源 **7B 级 VLA**：DINOv2 + SigLIP 视觉、Llama 2 语言，经大规模真实机器人示范微调；常与闭源 RT-2-X 等对照。
+开源 **7B 级 VLA**：SigLIP + DINOv2 双视觉编码器 + Llama 2 语言骨干，在 97 万条真机示范上做动作微调，可用 LoRA 在消费级 GPU 上适配。
 :::
 
-**材料：** [Paper](https://arxiv.org/abs/2406.09246) · [Project](https://openvla.github.io/) · [Code](https://github.com/openvla/openvla) · 本地摘录：[模型架构](/blog/paper-node/Robot_Learning_1/OpenVLA/openvla_model.pdf) · [Teaser](/blog/paper-node/Robot_Learning_1/OpenVLA/openvla_teaser.pdf)
+**会议 / 年份** CoRL 2024 ｜ **机构** Stanford · UC Berkeley · TRI · Google DeepMind · Physical Intelligence · MIT ｜ **方向** 开源 VLA ｜ **真机** ✅ WidowX · Google robot · Franka
 
+**材料** [Paper](https://arxiv.org/abs/2406.09246) · [Project](https://openvla.github.io/) · [Code](https://github.com/openvla/openvla)
 ::::
 
 <details class="paper-bibtex-fold">
 <summary>BibTeX</summary>
-<pre><code>@inproceedings{kim2025openvla,
+<pre><code>@inproceedings{kim2024openvla,
   title     = {OpenVLA: An Open-Source Vision-Language-Action Model},
-  author    = {Kim, Moo Jin and Pertsch, Karl and Karamcheti, Siddharth and Xiang, Ted and Pathak, Deepak and Finn, Chelsea},
+  author    = {Kim, Moo Jin and Pertsch, Karl and Karamcheti, Siddharth and Xiao, Ted
+               and Balakrishna, Ashwin and Nair, Suraj and Rafailov, Rafael and Foster, Ethan
+               and Sanketi, Pannag and Vuong, Quan and Kollar, Thomas and Burchfiel, Benjamin
+               and Tedrake, Russ and Sadigh, Dorsa and Levine, Sergey and Liang, Percy and Finn, Chelsea},
   booktitle = {Conference on Robot Learning},
-  year      = {2025},
+  year      = {2024},
   url       = {https://arxiv.org/abs/2406.09246}
 }</code></pre>
 </details>
 
-**我记住的三点**
+> 更正：会议为 **CoRL 2024**（非 2025）；作者应为 **Ted Xiao**（非「Xiang」），且 **Pathak 并非作者**；机构补上 Physical Intelligence。
 
-1. **双视觉编码器**：OpenVLA 同时使用 **SigLIP**（侧重语义对齐）和 **DINOv2**（侧重空间 / 几何特征）的视觉编码器，两者的 patch token 拼接后通过投影层送入 Llama 2 7B 的输入。这种设计来自 Prismatic VLM 的洞见——**语义 + 几何特征互补**比单用一种好。
-2. **动作 token 化沿用 RT-2 方案**：每个动作维度离散化为 256 bin，用 Llama 的词表中的特殊 token 表示。自回归生成 7 个 token（Δx/y/z, Δrx/ry/rz, gripper），解码为连续动作。整体与 RT-2 一致，但 backbone 换成开源的 Llama 2 + SigLIP。
-3. **全开源与微调便利性**：OpenVLA 是首个 **完全开源**、**可从 HuggingFace 直接下载**、**有标准微调脚本** 的 7B VLA。社区可以像微调 LLaMA 一样微调 OpenVLA 到自己的机器人上。权重、数据、代码全部公开。
+### Motivation
 
-**方法 / 实现（想写再写）**
+RT-2/RT-2-X 这类 VLA 闭源、难以适配。OpenVLA 提供一个开源 7B VLA，在大规模真机数据上训练，重点是**易微调**（含 LoRA、消费级 GPU）与跨 embodiment 泛化，作为闭源方案的开放替代。
 
-![OpenVLA 模型结构](/blog/paper-node/Robot_Learning_1/OpenVLA/openvla_model.png)
+### Method
 
-![OpenVLA Teaser](/blog/paper-node/Robot_Learning_1/OpenVLA/openvla_teaser.png)
+- **双视觉编码器**：**SigLIP（偏语义）+ DINOv2（偏空间/几何）**的 patch 特征在通道维拼接，过 MLP 投影后送入 **Llama 2 7B**；整体基于 Prismatic-7B VLM。
+- **动作 token 化（沿用 RT-2）**：每维 256 bin（取训练动作 1–99 分位内均匀离散），7-DoF → **7 个 token/步**，实现上**覆写 Llama 词表中最少用的 256 个 token**。
+- **单帧输入**：仅当前一帧图像、无历史（论文明确列为局限）。
 
-训练流程：
-1. **阶段一**：Prismatic VLM 预训练（SigLIP + DINOv2 + Llama 2 7B），在 LLaVA-1.5 的视觉指令数据上训练视觉–语言对齐。
-2. **阶段二**：在 Open X-Embodiment 的 970k 条机器人 episode 上做 **action fine-tuning**。输入格式 = 图像 + 语言指令，输出 = 7 个动作 token。
-3. **微调到新任务**：标准的 LoRA 或全参数微调，少量数据（~50–100 demos）即可。
+![OpenVLA 模型结构](/blog/paper-note/Robot_Learning_1/OpenVLA/openvla_model.png)
 
-推理：
-- 7B 模型在 A100 上约 5–6 Hz（包含视觉编码 + 自回归生成 7 token），勉强满足桌面操作。
-- 量化到 INT8 后可加速到 ~8 Hz。
+![OpenVLA Teaser](/blog/paper-note/Robot_Learning_1/OpenVLA/openvla_teaser.png)
 
-**实验里印象最深**
+### Experiments
 
-- 在 **WidowX** 真机上的「Bridge V2」评估中，OpenVLA 微调后成功率与 RT-2-X（55B，闭源）持平甚至略高，参数量却只有后者的 1/8。
-- 与 Octo 对比：OpenVLA 在**需要语义理解的任务**上（如区分相似物体、理解复杂指令）明显更好，因为 VLM 基座更强。在简单拾放任务上二者接近。
-- 消融双视觉编码器：去掉 DINOv2（只留 SigLIP）掉约 5 pp，去掉 SigLIP（只留 DINOv2）掉约 10 pp。印证了「语义 + 几何」互补的假设。
+- **数据/算力**：Open X-Embodiment 的 **97 万条**轨迹（70+ 数据集混合），64 张 A100 训练 14 天。
+- **主结果**：在跨 29 个任务、多 embodiment 的通才评测上，OpenVLA（7B）以约 **16.5 个百分点（绝对值）** 超过 RT-2-X（55B），参数量约为其 1/7。
+- **推理与量化**：约 **6 Hz on RTX 4090**（bf16，约 15GB；原笔记「A100」有误）。量化对比：bf16 71.3%、**INT4 71.9%（约 7GB，基本无损）**、**INT8 反而降到约 58%**——所以推荐的是 **4-bit**，而非原笔记强调的 INT8。
+- **微调**：LoRA（约 97.6M 参数）可与全参数微调持平。
+- **消融更正**：原笔记「去 DINOv2 −5pp / 去 SigLIP −10pp」的单编码器移除数值**在论文中未核到**，此处不引用（论文的相关消融是与其他 base VLM 的对比，以及分辨率、是否微调视觉编码器等）。
+- **真机**：WidowX（BridgeData V2，170 rollouts/17 任务）、Google robot（60/12）、Franka（5Hz/15Hz 两套）。
 
-**疑问或想继续看的**
+### Strengths and Limitations
 
-- 7B 的推理延迟（5–6 Hz）对灵巧操作仍然太慢。TinyVLA 和 VLA-Adapter 正在探索 <1B 的轻量 VLA。
-- 动作精度问题：256 bin 的离散化与 RT-2 共享同样的精度瓶颈。OpenVLA v2 开始探索扩散式 / FAST 式的连续动作头。
-- OpenVLA 目前是**单帧输入**（无历史），能否加入 temporal 信息（如 ACT 的多帧观测）来处理需要运动信息的任务？
+**Strengths**：全开源（权重/代码/数据混合），可复现；7B 超过 55B 的 RT-2-X 达 16.5pp；LoRA 微调 + 4-bit 量化让消费级 GPU 可用（约 7GB）；跨 embodiment。
+
+**局限（分析）**：仅单帧观测（无历史、无多视角、无本体感觉融合）；约 6 Hz 吞吐对高频（如 50Hz）控制偏慢；多数任务成功率仍 <90%，尚不足生产级。
+
+### Takeaways
+
+OpenVLA 把 VLA 拉进开源生态，成为社区默认基线之一；其单帧、离散动作、约 6Hz 的三个约束，正是后续工作（连续/扩散动作头、加入历史、轻量化）的改进方向。
 
 ::::paper{tone="rdt"}
 
 ## RDT
 
-**论文：** *RDT-1B: a Diffusion Foundation Model for Bimanual Manipulation*
-
-**主要机构：** 清华大学等（RDT-robotics 发布方）
-
-**会议 / 年份：** International Conference on Learning Representations (ICLR)，2025
+**RDT-1B: a Diffusion Foundation Model for Bimanual Manipulation**
 
 :::note[一句话]
-**大规模双手操作扩散基础模型**：Transformer + 扩散建模多模态动作；统一动作空间衔接异构机器人数据，强调零样本与语言跟随。
+把扩散策略推到十亿参数级的**双臂基础模型**：1.2B 的 DiT 类去噪 Transformer + 统一动作空间，衔接异构机器人数据，强调零样本与少样本语言跟随。
 :::
 
-**材料：** [Paper](https://arxiv.org/abs/2410.07864) · [Project](https://rdt-robotics.github.io/rdt-robotics) · [Code](https://github.com/thu-ml/RoboticsDiffusionTransformer) · 本地摘录：[架构](/blog/paper-node/Robot_Learning_1/RDT/framework.pdf) · [微调数据](/blog/paper-node/Robot_Learning_1/RDT/ft_dataset.pdf)
+**会议 / 年份** ICLR 2025 ｜ **机构** 清华大学（TSAIL）｜ **方向** 双臂扩散基础模型 ｜ **真机** ✅ ALOHA 双臂
+
+**材料** [Paper](https://arxiv.org/abs/2410.07864) · [Project](https://rdt-robotics.github.io/rdt-robotics/) · [Code](https://github.com/thu-ml/RoboticsDiffusionTransformer)
 
 ::::
 
 <details class="paper-bibtex-fold">
 <summary>BibTeX</summary>
-<pre><code>@article{liu2024rdt,
-  title   = {{RDT-1B}: a Diffusion Foundation Model for Bimanual Manipulation},
-  author  = {Liu, Songming and Wu, Lingxuan and Li, Bangguo and Tan, Hengkai and Chen, Huayu and Wang, Zhengyi and Xu, Ke and Su, Hang and Zhu, Jun},
-  journal = {arXiv preprint arXiv:2410.07864},
-  year    = {2024}
+<pre><code>@inproceedings{liu2025rdt,
+  title     = {{RDT-1B}: a Diffusion Foundation Model for Bimanual Manipulation},
+  author    = {Liu, Songming and Wu, Lingxuan and Li, Bangguo and Tan, Hengkai and Chen, Huayu
+               and Wang, Zhengyi and Xu, Ke and Su, Hang and Zhu, Jun},
+  booktitle = {International Conference on Learning Representations},
+  year      = {2025},
+  url       = {https://arxiv.org/abs/2410.07864}
 }</code></pre>
 </details>
 
-**我记住的三点**
+### Motivation
 
-1. **Diffusion + Transformer at scale**：RDT 不是小型去噪 MLP，而是一个 **1.2B 参数的 Transformer**（与 DiT 同架构）作为去噪网络。输入是噪声动作 token + 多模态条件（图像、语言、本体状态），通过标准 DDPM 训练。这是目前把扩散策略推到**十亿参数级**的代表。
-2. **统一动作空间 (Unified Action Space)**：为解决不同机器人（单臂 / 双臂 / 不同自由度）的动作维度不一致问题，RDT 定义了一个 **128 维的最大公约数动作空间**，所有机器人的动作 zero-padding 到 128 维，并用 mask 标记有效维度。这使得预训练可以混用异构机器人数据。
-3. **预训练 + 微调范式**：在来自 46 个数据集、多种 embodiment 的数据上预训练后，只需 **少量目标域数据**（50–100 demos）微调即可适配新机器人。微调时只更新 action head 的部分参数（类似 Octo 的 readout 思路），backbone 大部分冻结。
+双臂操作缺大规模数据，且两臂协调难。RDT 想把扩散 Transformer 扩到 1.2B，用**统一动作空间**在最大规模的多机器人数据上预训练，再用自采双臂数据微调，追求对未见物体/场景的零样本泛化、语言跟随，以及 1–5 条示范的少样本学习。
 
-**方法 / 实现（想写再写）**
+### Method
 
-![RDT 框架](/blog/paper-node/Robot_Learning_1/RDT/framework.png)
+- **1.2B DiT 类去噪网络**：以图像、语言、本体状态为多模态条件，对噪声动作 token 去噪。
+- **扩散形式（更正）**：是 **DDPM（离散时间扩散）**，但目标是**预测干净动作（sample-prediction）而非预测噪声（ε-prediction）**；采样用 **DPM-Solver++**（约 6 Hz/动作块）。它不是 flow matching。
+- **条件编码器（关键更正）**：**语言用 T5-XXL，图像用 SigLIP**；**没有 DINOv2**。原笔记把语言/图像编码器写反并虚构了 DINOv2。
+- **统一动作空间**：物理可解释的统一动作向量，异构机器人以 zero-pad + mask 对齐（论文常引最大维度为 128；正文未核到精确值时不作硬断言）。
+- **条件注入（更正）**：以 **cross-attention + Alternating Condition Injection（ACI）** 为主（图文 token 在相邻层交替注入），并用 QKNorm、RMSNorm、非线性 MLP 解码头等 DiT 改造；并非「AdaLN-zero 承载条件」。动作块长度 64。
+- **微调（更正）**：**全模型微调**，无冻结 backbone / 局部头方案。
 
-![RDT 微调数据集](/blog/paper-node/Robot_Learning_1/RDT/ft_dataset.png)
+![RDT 框架](/blog/paper-note/Robot_Learning_1/RDT/framework.png)
 
-架构：
-- **条件编码**：SigLIP 编码语言，SigLIP + DINOv2 编码图像（多相机），本体状态线性投射。所有条件 token 拼接。
-- **去噪 Transformer**：类 DiT 的 Transformer，每层用 AdaLN-Zero 注入 diffusion timestep。输入 = 条件 token 拼接 噪声动作 token。
-- **训练**：标准 DDPM 的 ε-prediction。128 维动作 token，chunk size 64（即预测未来 64 步动作）。
-- **推理**：DDIM 10–20 步去噪。
+![RDT 微调数据集](/blog/paper-note/Robot_Learning_1/RDT/ft_dataset.png)
 
-关键差异 vs DP：
-- DP 的去噪网络是轻量 1D U-Net（~30M），RDT 是 **1.2B Transformer**——后者的表达能力和数据吞吐量大得多。
-- RDT 支持**多模态条件**（语言 + 多相机 + 本体），DP 通常只有图像。
+### Experiments
 
-**实验里印象最深**
+- **数据**：预训练 **46 个数据集、100 万+ 轨迹**；微调 **6000+ 条**自采 ALOHA 双臂 episode。
+- **Baseline（更正）**：对比 **ACT、OpenVLA、Octo**（非原笔记的 DP）。真机结果举例：
 
-- 在 ALOHA 双臂真机上，RDT 用 50 条示范微调后，在叠衣服、拧瓶盖等**精细双手任务**上成功率 70–85%，优于 ACT（60–75%）和 DP（55–70%）。
-- **零样本能力**：在某些简单任务（如抓取已知物体）上，预训练的 RDT 不经微调即可执行，说明大规模预训练带来了泛化。
-- 消融 1.2B vs 200M 参数：大模型在**多步长程任务**上优势明显（约 +15 pp），在单步任务上差距较小。
+| 任务 | RDT | ACT | OpenVLA |
+|:--|:--:|:--:|:--:|
+| Wash Cup | 87.5% | 0% | 0% |
+| Pour Water | 62.5% | 37.5% | 0% |
+| 机器狗灵巧任务 | 48% | 32% | 0% |
 
-**疑问或想继续看的**
+> 更正：原笔记「叠衣服/拧瓶盖 RDT 70–85% vs ACT 60–75% / DP 55–70%」为杜撰值，已替换为论文实际任务与数值。
+- **消融**：小模型为 **166M**（非「200M」）；小→1.2B 时，Unseen Object 37.5%→50%、Instruction Following 25%→100%（Unseen Scene 持平）。
+- **零样本**：对未见物体/场景有一定零样本能力。
 
-- 1.2B 的推理成本：RDT 在 A100 上约 3Hz（DDIM 10 步），对快速反应场景可能不够。能否结合**一致性蒸馏 (consistency distillation)** 把去噪步压到 1–2 步？
-- 128 维统一动作空间的 padding 是否引入了无用梯度？是否有更优雅的方案（如 per-embodiment adapter）？
-- RDT 与 π0 的对比：π0 用 Flow Matching + VLM backbone，RDT 用 DDPM + DiT backbone。两者在同样数据量下谁更优？π0.5/π0.6 的结果似乎更强，但闭源难以公平对比。
+### Strengths and Limitations
 
-**和本页其他论文**
+**Strengths**：当时最大的扩散操作基础模型（1.2B）；统一物理动作空间支持异构多机预训练（46 数据集、100 万+ 轨迹）；少样本（1–5 条）与零样本泛化强，难双臂任务上大幅领先 ACT/OpenVLA/Octo；DPM-Solver++ 支持近实时（约 6 Hz/块）。
 
-- [ACT](#act)：小规模模仿 + 动作块的先驱；其后为 **规模化** Transformer / 扩散 / VLA。ACT 的 action chunking 思想在 DP、RDT 中均有体现。
-- [DP](#dp) → [DP3](#dp3)：2D 图像观测 → 3D 表征 + 扩散策略。DP 建立了用**扩散建模动作分布**的范式，DP3 引入**3D 泛化**，RDT 则将扩散推到**十亿参数级基础模型**。
-- [RT-1](#rt-1) → [RT-2](#rt-2)：从纯机器人 Transformer 到 **VLA** 与网络知识迁移。RT-1 展示了大规模真实数据的价值，RT-2 展示了 VLM 预训练知识的迁移，OpenVLA 则将此路线**开源化**。
-- [Octo](#octo) ↔ [OpenVLA](#openvla)：两条开源路线——Octo 轻量、微调快，侧重**操作泛化**；OpenVLA 重 VLM、语义强，侧重**语言理解**。选择取决于任务需要更多「几何泛化」还是「语义理解」。
-- [RDT](#rdt) ↔ [DP](#dp) / [DP3](#dp3)：**扩散 + Transformer + 大规模预训练** vs 单任务轻量扩散策略。RDT 是 DP 路线的「scaling up」版本。
+**局限（分析）**：真机评测局限于单一 ALOHA 类双臂平台、任务集不大（每任务试验数少，如 n=8 → 12.5% 粒度较粗）；全模型微调成本高、无轻量适配；最难任务的绝对成功率仍中等（如灵巧任务 48%）。
 
-## 新增一篇时怎么写（极简）
+### Takeaways
 
-1. 在 `Robot_Learning_1` 下建子文件夹，复制 **卡片块** + **BibTeX 折叠** + **笔记小节**。  
-2. `tone` 见 `markdown.css` 中 `[data-paper-tone="…"]`；新色仿照追加一条。  
-3. 目录表加一行，`[↓](#锚点)` 与标题生成 slug 一致。  
-4. 静态资源进 `public/paper-node/Robot_Learning_1/...`。
+RDT 代表「DP 路线的 scaling up」：把轻量扩散头换成十亿级 DiT，并用统一动作空间打通异构数据。它与 π0（Flow Matching + VLM）形成扩散基础模型的两种技术选型对照。
 
-> [!TIP]
-> 需要更细的拆解时，在卡片下加 `###` 小节即可。
+## Cross-Paper Comparison
 
----
+| 论文 | 核心思想 | 学习范式 | 优势 | 局限（分析） |
+|:--|:--|:--|:--|:--|
+| ACT | 动作块 + CVAE | Imitation（CVAE） | 样本高效、抑制复合误差 | 短时程、单 embodiment |
+| DP | 扩散建模动作分布 | Imitation（Diffusion） | 多模态、训练稳 | 迭代去噪较慢 |
+| DP3 | 点云 + 轻量 3D 编码器 | Imitation（Diffusion, 3D） | 几何泛化、极轻编码器 | 依赖深度质量 |
+| RT-1 | 大数据 + 动作 token | Imitation（Transformer） | 真机 scaling 验证 | 采集贵、无 web 知识 |
+| RT-2 | VLM 输出动作 token | VLA（co-fine-tune） | 语义泛化/推理涌现 | 巨大、慢、闭源 |
+| Octo | 模块化 Transformer + 扩散头 | 开源通才（Diffusion head） | 全开源、微调快、轻量 | 语言 grounding 受限 |
+| OpenVLA | 双视觉编码器 + Llama 2 | 开源 VLA（离散 token） | 7B 超 55B、可 LoRA/量化 | 单帧、约 6Hz 偏慢 |
+| RDT | 十亿级 DiT + 统一动作空间 | 双臂扩散基础模型 | 大规模、少/零样本强 | 单平台评测、微调贵 |
 
-_Changelog：2026-03 — 扩充至与 `Robot_Learning_1` 目录一致的 8 篇；资源路径改为 `Robot_Learning_1`。_
-_Changelog：2026-04 — 全部填充深度笔记文字、插入论文摘录 PDF。_
+## Discussion
+
+把八篇放在一起看，可以梳理出几条趋势：
+
+1. **动作表示是主线**。从回归 → CVAE（ACT）→ 扩散（DP/DP3/Octo/RDT）→ 离散 token（RT-1/RT-2/OpenVLA），本质都在解决同一件事：如何表达示范里的多模态分布。扩散与离散 token 目前是两大主流，各有取舍——扩散连续、精度高但迭代慢，token 化契合自回归 VLM 但受 bin 精度限制。
+
+2. **action chunking + receding horizon 已成事实标准**。ACT 提出、DP 系统化，之后几乎所有策略都预测动作块再滚动执行，兼顾前瞻与反应。
+
+3. **Scaling 有两条路**。一条是「数据规模化」（RT-1 用真机数据、RDT 用异构数据 + 统一动作空间）；另一条是「知识迁移」（RT-2/OpenVLA 复用互联网级 VLM）。两者互补：前者教会「怎么动」，后者带来「懂语义」。
+
+4. **开源与部署成本正在收敛差距**。Octo、OpenVLA 证明中小模型 + 开源 + 高效微调可逼近甚至超过闭源大模型（OpenVLA 7B > RT-2-X 55B）。真正的瓶颈从「能不能做」转向「能不能便宜、实时、可复现地做」。
+
+对 long-horizon manipulation / skill learning / embodied foundation model 的启发：**几何/3D 表征**（DP3）对接触密集任务的泛化值得深挖；**统一动作空间**（RDT）是打通异构数据的实用工程；而**VLA + 扩散/连续动作头**的融合（OpenVLA 之后的连续动作头、RDT 与 π0 的对照）很可能是下一阶段基础模型的主战场。这些线索在本系列后续（Robot Learning 2/3，含 π0 系列、TinyVLA、WorldVLA 等）继续展开。
