@@ -1,12 +1,12 @@
 <script lang="ts">
-import Icon from "@iconify/svelte";
 import {
 	applyDomI18n,
+	type DisplayLang,
 	FUWARI_LANG_CHANGE,
 	getStoredDisplayLang,
 	setStoredDisplayLang,
-	type DisplayLang,
 } from "@i18n/client-i18n";
+import Icon from "@iconify/svelte";
 import { onMount } from "svelte";
 
 let current: DisplayLang = $state("en");

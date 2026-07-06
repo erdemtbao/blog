@@ -16,7 +16,7 @@ interface Props {
 	"client:load"?: boolean;
 	"client:only"?: string;
 }
-let {} = $props<Props>();
+let _astroDirectives = $props<Props>();
 
 const seq: LIGHT_DARK_MODE[] = [LIGHT_MODE, DARK_MODE, AUTO_MODE];
 let mode: LIGHT_DARK_MODE = $state(AUTO_MODE);
