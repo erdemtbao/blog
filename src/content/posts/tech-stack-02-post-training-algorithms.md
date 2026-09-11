@@ -1,6 +1,6 @@
 ---
 title: "Technology Stack 02: Post-training Algorithms"
-published: 2026-07-14
+published: 2026-07-26
 description: 后训练把预训练底座对齐成可用的模型与策略——从 SFT / 模仿学习，到面向语言模型的 PPO、GRPO、DAPO、DPO，再到面向连续控制与具身智能的 SAC、IQL、RLPD、DSRL、RECAP 等一整套算法地图。
 image: ''
 tags: [Technology Stack, Post-training, RLHF, RL, Alignment, VLA, Machine Learning]

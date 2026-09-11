@@ -1,6 +1,6 @@
 ---
 title: "Technology Stack 03: Data and Scaling"
-published: 2026-07-18
+published: 2026-08-15
 description: 数据与规模化是决定能力上限的底层变量——scaling law、数据质量与配比、算力—数据—参数的联合权衡。
 image: ''
 tags: [Technology Stack, Data, Scaling Laws, Compute, Machine Learning]
