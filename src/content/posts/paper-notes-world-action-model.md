@@ -1,8 +1,9 @@
 ---
 title: "Paper Notes: World Action Models"
 published: 2026-07-06
-description: 世界动作模型（World Action Model, WAM）专题精读——Cosmos-Policy、DreamZero、LingBot-VA、GigaWorld-Policy、MotuBrain、RepWAM、OA-WAM、DiM-WAM：把预训练视频生成模型微调成机器人策略，让「预测世界怎么演化」和「决定做什么动作」在同一个模型里联合建模。
-image: ''
+updated: 2026-09-11
+description: 比较 Cosmos-Policy、DreamZero、LingBot-VA、GigaWorld-Policy、MotuBrain、RepWAM、OA-WAM 与 DiM-WAM 的视频—动作联合建模方式及现有证据边界。
+image: '/paper-note/World_Action_Model/Cosmos-Policy/framework.jpeg'
 tags: [Paper Notes, Robot Learning, World Model, VLA]
 category: Paper Notes
 draft: false
@@ -26,13 +27,15 @@ draft: false
 >
 > **③ 靠结构先验还是靠规模？** 对象可寻址（OA-WAM）、历史记忆库（DiM-WAM）、表征 tokenizer（RepWAM）注入结构；DreamZero（14B）、Cosmos-Policy 则赌通用视频骨干 + 规模。
 
-八篇的定位：
+> **证据等级说明（核查于 2026-09-11）**：本篇八项工作均为 2026 年 arXiv 预印本或公司项目。下述数字均应视为作者在指定 benchmark、硬件和数据设置中的报告，不能替代同行评审或独立复现；代码状态与项目页内容也可能继续变化。
+
+八篇工作的定位：
 
 - **Cosmos-Policy** — 最干净的范式陈述：把预训练视频模型 Cosmos-Predict2 **单阶段微调**成策略，动作/未来状态/价值全编码成 **latent frames**，还能测试时规划。
-- **DreamZero** — 「**WAM 即 zero-shot 策略**」：14B 自回归视频扩散骨干，跨本体（仅视频/人类示范）迁移，实机泛化 >2×。
-- **LingBot-VA** — **因果世界建模**：自回归 + 逆动力学 + 异步闭环，专补 chunk 式生成的 reactivity / 记忆 / 因果三个洞。
+- **DreamZero** — 将 14B 自回归视频扩散骨干作为 zero-shot 策略，并在作者定义的新任务/新环境评测中报告跨本体迁移结果。
+- **LingBot-VA** — **因果世界建模**：自回归生成、逆动力学与异步闭环，重点改善 chunk 式生成中的反馈时效、历史信息利用和因果一致性。
 - **GigaWorld-Policy** — **以动作为中心**：双分支训练、推理丢视频分支，效率优先。
-- **MotuBrain** — **三流 MoT + UniDiffuser**：一个模型通吃 policy / world model / video gen / inverse dynamics，工程化可部署。
+- **MotuBrain** — 用三流 MoT + UniDiffuser 在同一架构中承担 policy、world modeling、video generation 与 inverse dynamics 等任务，并报告针对特定部署配置的加速结果。
 - **RepWAM** — **表征型视觉-动作 tokenizer**：不再只做像素重建，在语义 latent 空间里建「未来视觉 + 隐式动作」。
 - **OA-WAM** — **对象可寻址**：把世界拆成物体槽（address + content），指令能精确「寻址」到目标物体，抗场景扰动。
 - **DiM-WAM** — **历史事件记忆库**：多尺度记忆缓解长时程操作里的「遗忘」。
@@ -47,9 +50,9 @@ draft: false
 | [DreamZero](#dreamzero) | 2026 / 2602.15922 | NVIDIA | 14B 自回归视频扩散联合建模 | 系统优化达 7Hz 闭环 | WAM 即 zero-shot 策略、跨本体迁移 |
 | [LingBot-VA](#lingbot-va) | 2026 / 2601.21998 | 蚂蚁 Robbyant | 双流 MoT + 视频-动作交错自回归 | 异步推理 + 半量去噪 + KV cache | 因果世界建模、逆动力学出动作 |
 | [GigaWorld-Policy](#gigaworld-policy) | 2026 / 2603.17240 | GigaAI | 双分支（动作 + 未来视频）互监督 | 因果设计→推理丢视频分支 | 以动作为中心、效率优先 |
-| [MotuBrain](#motubrain) | 2026 / 2604.27792 | 生数科技 | 三流 MoT（UniDiffuser） | 50×+ 加速、FP8/caching/V2A | 统一多任务 WAM、可部署 |
+| [MotuBrain](#motubrain) | 2026 / 2604.27792 | 生数科技 | 三流 MoT（UniDiffuser） | 作者报告 50×+ 加速、FP8/caching/V2A | 统一多任务 WAM |
 | [RepWAM](#repwam) | 2026 / 2606.13674 | 复旦·蚂蚁·港科大 | 表征视觉-动作 tokenizer + Causal WAM | — | 语义 latent 里建隐式动作 |
-| [OA-WAM](#oa-wam) | 2026 / 2605.06481 | 未标注 | 物体槽（address+content）| flow-matching 动作头、单前向 | 对象可寻址、抗场景扰动 |
+| [OA-WAM](#oa-wam) | 2026 / 2605.06481 | 见论文作者信息 | 物体槽（address+content）| flow-matching 动作头、单前向 | 对象可寻址、抗场景扰动 |
 | [DiM-WAM](#dim-wam) | 2026 / 2606.27677 | 中科院自动化所 | 记忆库 + 视频/动作联合建模 | — | 多尺度历史记忆解长时程遗忘 |
 
 
@@ -96,7 +99,7 @@ draft: false
 
 ### Experiments
 
-- **LIBERO**：四个 task suite 平均成功率 **98.5%**，达 SOTA（作者自报，arXiv + 官方页一致）。
+- **LIBERO**：作者按论文定义汇总四个 task suite，报告平均成功率 **98.5%**；“SOTA”仅指论文发布时列出的基线与相同评测协议。
 - **RoboCasa**：平均成功率 **67.1%**，且项目页称所需示范显著更少（**50 demos vs 300**）。
 - **真机双臂（ALOHA）**：平均分最高，优于从零训练的 diffusion policy、其他视频模型策略，以及在相同示范上微调的 SOTA VLA。
 - 基于经验精炼世界模型/价值 + 模型规划可在困难任务上进一步提升，**具体增量原文未给精确值**。
@@ -121,7 +124,7 @@ Cosmos-Policy 给出了 WAM 最简洁的一版陈述：**别为动作单独造�
 把「WAM」直接当**zero-shot 策略**：在预训练视频扩散骨干上建一个 **14B 自回归**世界动作模型，通过**同时预测未来世界状态（视频）+ 动作**学物理动力学；靠模型/系统协同优化让 14B 模型跑到 **7Hz 实时闭环**，并能用**其他机器人甚至人类的「仅视频」示范**做跨本体迁移。
 :::
 
-**年份 / Venue** arXiv 2026（2602.15922）｜ **机构** NVIDIA（Yuke Zhu · Jim Fan · Joel Jang 等）｜ **方向** Video-diffusion WAM, zero-shot generalization ｜ **真机** ✅ 实机泛化 >2×
+**年份 / Venue** arXiv preprint, 2026（2602.15922）｜ **机构** NVIDIA（Yuke Zhu · Jim Fan · Joel Jang 等）｜ **方向** Video-diffusion WAM, zero-shot generalization ｜ **真机** ✅ 作者在指定泛化设置中报告 >2× 相对提升
 
 **材料** [Paper](https://arxiv.org/abs/2602.15922) · [Project](https://dreamzero0.github.io/) · [Code](https://github.com/dreamzero0/dreamzero)
 ::::
@@ -154,7 +157,7 @@ Cosmos-Policy 给出了 WAM 最简洁的一版陈述：**别为动作单独造�
 
 ### Experiments
 
-- **实机泛化**：相比 SOTA VLA，在新任务/新环境上取得 **>2×** 提升（作者自报）。
+- **实机泛化**：作者在论文定义的新任务/新环境集合上，相对所选 VLA 基线报告 **>2×** 提升；该倍率不代表所有机器人任务。
 - **跨本体**：仅 **10–20 分钟**「其他机器人/人类视频」数据，未见任务上相对提升 **>42%**。
 - **少样本适配**：仅 **30 分钟** play data 即可迁移到新本体，同时保留 zero-shot 泛化。
 - **效率**：14B 模型 **7Hz** 实时闭环。
@@ -162,13 +165,13 @@ Cosmos-Policy 给出了 WAM 最简洁的一版陈述：**别为动作单独造�
 
 ### Strengths and Limitations
 
-**Strengths**：把 WAM 明确定位为 **zero-shot 策略**；视频监督带来强物理泛化；**仅视频/人类示范**即可跨本体迁移，极大降低新本体数据成本；14B 还能实时闭环，证明大 WAM 可部署。
+**Strengths**：论文把 WAM 直接作为 zero-shot 策略，并研究仅视频/人类示范对跨本体迁移的帮助；作者还在指定硬件与系统配置下报告 14B 模型约 7 Hz 的闭环速度。结果说明该方向具备可行性，但数据成本与部署能力仍需在更多本体、硬件和长时间运行中验证。
 
 **局限（分析）**：14B 骨干训练/部署成本高（需系统级优化才实时）；泛化幅度为作者自报头条，逐任务表需回原文；仍依赖视频骨干质量；开放世界长时程仍待验证。
 
 ### Takeaways
 
-DreamZero 把 WAM 从「一种策略架构」升格为「**zero-shot 泛化的来源**」，并用「仅视频迁移」直指 VLA 最大的痛点——新本体/新运动的数据成本。它与 Cosmos-Policy 共同确立了「**大视频模型即世界动作模型**」这条规模化主线。
+DreamZero 展示了将视频扩散骨干直接用于 zero-shot 策略和跨本体迁移的一种实现；Cosmos-Policy 则把视频、动作和价值建模结合起来。两项工作都支持继续研究视频预训练对机器人策略的贡献，但尚不能证明大视频模型本身就是充分的世界模型。
 
 ::::paper{tone="lingbotva"}
 
@@ -177,7 +180,7 @@ DreamZero 把 WAM 从「一种策略架构」升格为「**zero-shot 泛化的�
 **Causal World Modeling for Robot Control（LingBot-VA）**
 
 :::note[一句话]
-用**自回归扩散**把「视频世界模型」和「动作策略」统一：视频流（初始化自 Wan2.2-5B）与动作流并行的 **Mixture-of-Transformers**，视频-动作**交错序列**、**因果掩码**做统一 next-token 预测；世界模型先「想象」未来画面，**逆动力学**再反推该执行的动作，配**异步推理 + FDM grounding** 做鲁棒闭环——专治 chunk 式生成的 **reactivity / 记忆 / 因果**三个洞。
+该方法用**自回归扩散**统一视频世界模型与动作策略：视频流（初始化自 Wan2.2-5B）和动作流采用并行的 **Mixture-of-Transformers**，通过视频—动作交错序列和因果掩码完成统一的 next-token 预测；模型生成未来视觉状态，再由**逆动力学**预测动作，并结合**异步推理与 FDM grounding** 及时吸收真实反馈。其设计目标是改善 chunk 式生成中的反馈时效、历史信息利用和因果一致性。
 :::
 
 **年份 / Venue** arXiv 2026（2601.21998）｜ **机构** Ant Group（蚂蚁集团 · Robbyant）｜ **方向** Autoregressive causal WAM ｜ **真机** ✅ 6 任务（每任务仅 50 条演示）
@@ -273,12 +276,12 @@ LingBot-VA 代表 WAM 的「**闭环鲁棒**」支线：不满足于「能生成
 
 ### Experiments
 
-- **真机**：比领先 WAM 基线 **Motus 快 9×**，任务成功率**提升 7%**（arXiv + HF 一致，作者自报）。
+- **真机**：作者相对论文中的 WAM 基线 **Motus** 报告约 **9×** 推理加速和 **7 个百分点**的任务成功率提升；需要结合相同硬件、动作频率和任务设置理解。
 - **RoboTwin 2.0**：相比 **π0.5**，性能提升 **95%**。
 
 ### Strengths and Limitations
 
-**Strengths**：把「视频生成」定位为**训练期监督**而非推理负担，**推理丢视频分支**是极实用的效率解法；以动作为中心缓解表征纠缠；真机 9× 加速头条突出。
+**Strengths**：视频分支主要作为训练期辅助监督，推理时保留动作分支，从而降低生成视频带来的延迟。论文在指定系统中报告约 9× 加速；代价是推理时不再保留显式未来视频用于可视化或规划。
 
 **局限（分析）**：丢掉视频分支后就失去了「测试时规划/可视化」能力（与 Cosmos-Policy 取向相反）；效率数值项目页与摘要冲突，需回原文；自建数据集细节与开放性待查。
 
@@ -331,14 +334,14 @@ VLA 语义泛化好，但**缺乏对世界动态的细粒度建模**。MotuBrain
 
 ### Experiments
 
-- **推理加速**：相较 naive baseline **50×+ 加速**，达 up to **11 Hz**（作者自报）。
+- **推理加速**：作者相对其 naive baseline 报告 **50×+** 加速，并在指定硬件、缓存和精度配置下达到最高约 **11 Hz**；该结果不能跨实现直接比较。
 - **RoboTwin 2.0**：clean **95.8%** / randomized **96.1%** 平均成功率。
 - **WorldArena**：取得其自述最强 **EWMScore**。
 - **跨本体适配**：仅 **50–100** 条轨迹即可适配新的 humanoid 本体。
 
 ### Strengths and Limitations
 
-**Strengths**：**一个模型通吃**世界建模/策略/视频生成/逆动力学，工程整合度高；三流 MoT + UniDiffuser 让多模态联合建模干净；**50×+ 加速 + 11Hz** 直面部署；少样本跨本体（含 humanoid）实用。
+**Strengths**：同一架构支持世界建模、策略、视频生成和逆动力学等多种训练模式，三流 MoT + UniDiffuser 提供统一接口。作者报告的 50×+ 加速和最高 11 Hz 来自特定优化组合；跨本体结果仍需更多独立实验确认。
 
 **局限（分析）**：统一多任务模型训练/调度复杂；EWMScore/WorldArena 为其自建评测口径，横向可比性需谨慎；摘要层面**未见明确 Limitations**；数值均作者自报，逐项回原文。
 
@@ -389,7 +392,7 @@ MotuBrain 代表 WAM 的「**统一 + 可部署**」支线：不追单点最优�
 ### Experiments
 
 - arXiv 摘要仅笼统称「在真实操作任务和仿真基准上均取得强性能」，**摘要本身未给精确数值**；消融显示**语义视觉-动作 tokenization 优于重建导向**方案。
-- 项目页给出的具体数值（摘水果 60% / 推抽屉 80% / 插管 60%；RoboTwin 2.0 平均 Easy/Hard 89.3/88.4 等）。
+- 项目页给出摘水果、推抽屉、插管和 RoboTwin 2.0 等任务结果；正文不将不同任务、难度与评测协议压缩成一个总体性能数字，具体值以项目页对应表格为准。
 
 ### Strengths and Limitations
 
@@ -454,7 +457,7 @@ RepWAM 代表 WAM 的「**表征结构**」支线：别人在改怎么耦合视�
 
 **Strengths**：把**对象中心结构**注入 WAM，契合「指令常指向具体物体」的操作本质；address/content 解耦 + address-only attention 是干净的机制设计；**不新增 token**、单前向出 16 步动作，效率友好；swap-binding 0.87 vs 0.09 是有力的机制证据。
 
-**局限（分析）**：依赖物体槽发现/绑定质量，杂乱/遮挡场景可能退化；主要在 LIBERO/SimplerEnv 等**基准**上验证，真机闭环鲁棒性待补；元数据无机构信息、无公开代码页（截至核实未搜到）。
+**局限（分析）**：依赖物体槽发现与绑定质量，杂乱或遮挡场景可能退化；主要在 LIBERO、SimplerEnv 等基准上验证，真机闭环鲁棒性仍需补充。截至 2026-09-11，正文只保留论文能够确认的作者与来源信息，不推测未明确列出的机构。
 
 ### Takeaways
 
@@ -472,7 +475,7 @@ OA-WAM 代表 WAM 的「**对象结构**」支线，和 [World Models](/blog/pos
 
 **年份 / Venue** arXiv 2026（2606.27677）｜ **机构** 中科院自动化所 CASIA（+ Yinwang · FiveAges，Kai Wang 等）｜ **方向** Memory-augmented WAM, long-horizon ｜ **真机** ✅ 真机 Franka
 
-**材料** [Paper](https://arxiv.org/abs/2606.27677) · [Project](https://wangkai-casia.github.io/dim-wam/)（代码 Coming Soon）
+**材料** [Paper](https://arxiv.org/abs/2606.27677) · [Project](https://wangkai-casia.github.io/dim-wam/) · 代码状态：截至 2026-09-11，项目页标记为尚未发布
 ::::
 
 <details class="paper-bibtex-fold">
@@ -509,7 +512,7 @@ OA-WAM 代表 WAM 的「**对象结构**」支线，和 [World Models](/blog/pos
 
 **Strengths**：直面 WAM 的**长时程遗忘**——一个此前较少被专门处理的问题；**多记忆库 + 任务进度监督**是清晰的结构化解法；真机 Franka 有整任务/阶段两级指标。
 
-**局限（分析）**：多记忆库增加建模/调度复杂度；**代码 Coming Soon**、数值多次抓取不一致，可复现性/精确性待原文；作者名单在两处略有出入（核实为中）；评测规模与横向口径待补。
+**局限（分析）**：多记忆库增加建模与调度复杂度；截至 2026-09-11 代码尚未发布，复现性有限。不同页面曾出现指标或作者展示差异，因此本文只采用 arXiv 当前版本能够直接确认的信息，评测规模和横向口径仍需后续版本补充。
 
 ### Takeaways
 
@@ -546,4 +549,4 @@ DiM-WAM 代表 WAM 的「**记忆结构**」支线：当任务变长，短期历
 
 3. **结构先验 vs 规模化**。RepWAM（表征）、OA-WAM（对象）、DiM-WAM（记忆）代表「**注入结构先验**」的支线；DreamZero（14B）、Cosmos-Policy、MotuBrain 则更靠「**通用视频骨干 + 规模 + 工程**」——这与 [World Models](/blog/posts/paper-notes-world-model/) 里「FOCUS/RoboDreamer 结构化 vs Dreamer/V-JEPA 规模化」的张力如出一辙。
 
-4. **和 VLA 的关系：正在合流**。[Robot Learning (2)](/blog/posts/paper-notes-robot-learning-2/) 的 π0 系列直接学「观测→动作」，是本篇几乎所有论文的对照基线（π0.5 反复出现）；WAM 则多学一层「世界会怎样」。两条线正在收敛：**WAM 用视频当稠密监督来补 VLA 的物理泛化短板，VLA 的动作头/流匹配又被 WAM 直接借用**。可以预期，下一代 embodied foundation model 会同时具备「**预测世界**（world model）」与「**决定动作**（policy）」两种能力，而**视频生成在推理时留不留、以及世界用什么结构表示**，仍会是核心设计选择。
+4. **和 VLA 的关系。** [Robot Learning (2)](/blog/posts/paper-notes-robot-learning-2/) 的 π0 系列直接学习观测到动作的条件分布；本篇 WAM 额外预测未来观测，或把视频作为训练期辅助信号。两类模型正在共享 flow matching、动作专家和视频骨干等组件，但未来系统是否必须同时保留显式世界预测与策略输出，仍是需要实验回答的问题。

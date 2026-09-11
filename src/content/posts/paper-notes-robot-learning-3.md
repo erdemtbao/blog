@@ -1,8 +1,9 @@
 ---
 title: "Paper Notes: Robot Learning (3)"
 published: 2026-04-02
-description: 训练无关（training-free）的语言/视觉基础模型接地一线——VoxPoser、CoPa、ReKep：用 LLM/VLM 把自由语言接地成显式的 3D 几何/约束，再交给优化器/规划器解出 6-DoF 动作。
-image: ''
+updated: 2026-09-11
+description: 比较 VoxPoser、CoPa 与 ReKep 如何在不针对任务训练策略的设定下，用 LLM/VLM 生成显式 3D 几何约束，再由优化器或规划器求解机器人动作。
+image: '/paper-note/Robot_Learning_3/ReKep/method.jpg'
 tags: [Paper Notes, Robot Learning, Foundation Models]
 category: Paper Notes
 draft: false
@@ -87,7 +88,7 @@ LLM 里装着大量可用于操作的「可执行知识」（推理 + 规划）�
 
 ### Takeaways
 
-VoxPoser 立起了这条线的范式：**LLM 写码把语言接地成 3D value map，再交给经典规划器**。它证明了不训练策略也能做开放世界操作。后两篇都在追问「value map 还不够刻画什么」——CoPa 补**部件级几何约束**，ReKep 补**关系关键点上的时空约束**。
+VoxPoser 展示了一条 training-free 管线：让 LLM 生成代码，把语言条件转成 3D value map，再交给运动规划器。在论文规定的仿真与 Franka 任务中，这一方法无需额外训练任务策略；它不能被外推为对所有开放世界操作都有效。CoPa 和 ReKep 分别把接地表示扩展到部件级几何约束与关系关键点约束。
 
 ::::paper{tone="copa"}
 
@@ -99,7 +100,7 @@ VoxPoser 立起了这条线的范式：**LLM 写码把语言接地成 3D value m
 把接地下沉到**物体部件**：用粗到细的 grounding 定位「任务相关部件」，让 VLM（GPT-4V）生成这些部件的**空间几何约束**（如锤头要在钉子正上方、轴线竖直），再解出抓取之后的一串 6-DoF 位姿；开放世界、免训练。
 :::
 
-**年份 / Venue** arXiv 2024（正式发表以官方页为准）｜ **机构** Tsinghua IIIS · Shanghai Qi Zhi · SJTU · Shanghai AI Lab（Yang Gao 组）｜ **方向** Part-level VLM grounding, task-aware planning ｜ **真机** ✅ Franka，开放世界桌面操作
+**年份 / Venue** arXiv preprint, 2024 ｜ **机构** Tsinghua IIIS · Shanghai Qi Zhi · SJTU · Shanghai AI Lab（Yang Gao 组）｜ **方向** Part-level VLM grounding, task-aware planning ｜ **真机** ✅ Franka，开放世界桌面操作
 
 **材料** [Paper](https://arxiv.org/abs/2403.08248) · [Project](https://copa-2024.github.io/)
 
@@ -150,7 +151,7 @@ CoPa 把一次操作拆成**两个模块**（都由基础模型驱动、无需�
 
 ### Takeaways
 
-CoPa 把 VoxPoser 的「场景级 value map」推进到「**部件级几何约束**」，专治朝向敏感的操作。它与 ReKep 的关系很近——都在用 VLM 生成**几何约束**再优化位姿；区别在于 ReKep 把约束统一成**关系关键点上的可微代价**并做**实时闭环**，而 CoPa 更偏「抓取 + 抓取后位姿」的分段规划。
+CoPa 将 VoxPoser 的场景级 value map 思路推进到**部件级几何约束**，重点处理对物体朝向敏感的操作。它与 ReKep 都使用 VLM 生成几何约束再优化位姿；区别在于 ReKep 将约束统一为关系关键点上的可微代价并进行闭环重规划，而 CoPa 更偏向“抓取位姿 + 抓取后位姿”的分段规划。
 
 ::::paper{tone="rekep"}
 
@@ -162,7 +163,7 @@ CoPa 把 VoxPoser 的「场景级 value map」推进到「**部件级几何约�
 把操作任务写成**关系关键点上的时空约束**——一组 Python 代价函数，把若干 3D 关键点映射到标量代价；大视觉模型 + VLM 从语言与 RGB-D **自动生成**这些约束，再用**分层优化**实时解出 SE(3) 位姿序列，支持多阶段、双臂、反应式。
 :::
 
-**年份 / Venue** arXiv 2024（会议录用以官方为准）｜ **机构** Stanford · Columbia（Fei-Fei Li / Yunzhu Li）｜ **方向** Keypoint constraints, hierarchical optimization ｜ **真机** ✅ 移动单臂 + 固定双臂，in-the-wild
+**年份 / Venue** arXiv preprint, 2024 ｜ **机构** Stanford · Columbia（Fei-Fei Li / Yunzhu Li）｜ **方向** Keypoint constraints, hierarchical optimization ｜ **真机** ✅ 移动单臂 + 固定双臂，in-the-wild
 
 **材料** [Paper](https://arxiv.org/abs/2409.01652) · [Project](https://rekep-robot.github.io/) · [Code](https://github.com/huangwl18/ReKep)
 
@@ -200,7 +201,7 @@ CoPa 把 VoxPoser 的「场景级 value map」推进到「**部件级几何约�
 
 - **平台**：**移动单臂**（wheeled single-arm）与**固定双臂**（stationary dual-arm）两套真机。
 - **任务**：in-the-wild（收书、倒茶、封箱、回收易拉罐）、双臂协作（装鞋、协同叠衣、叠毛衣）、以及**用新策略叠各类衣物**（毛衣/衬衫/连帽衫/背心/裙/裤/短裤/围巾）；展示多阶段与反应式（关键点被扰动后闭环纠正）。
-- **数值**：官方页与摘要未给出统一的成功率表，**具体百分比未核到**；可靠的是「统一约束表示 + 分层优化 + 实时关键点跟踪 → 多阶段/双臂/反应式，零样本免训练」这一定性结论。
+- **结果口径**：公开材料主要通过多阶段、移动单臂和固定双臂案例展示系统能力；由于不同任务没有统一成功率口径，本文不汇总成单一百分比。
 
 ### Strengths and Limitations
 
@@ -210,7 +211,7 @@ CoPa 把 VoxPoser 的「场景级 value map」推进到「**部件级几何约�
 
 ### Takeaways
 
-ReKep 是这条线的集大成：把 VoxPoser 的「value map」、CoPa 的「部件约束」统一成**关系关键点上的可微代价**，并首次把它做到**实时闭环 + 双臂**。它把「大模型接地 → 经典优化求解」这套范式，从「规划一次」推到了「**实时反应**」，是 training-free 路线里最接近可用系统的一篇。
+ReKep 将语言模型生成的任务约束表示为关系关键点上的可微代价，并结合关键点跟踪与分层优化，在论文中展示了实时重规划、多阶段任务和双臂案例。与 VoxPoser、CoPa 相比，它更强调时序约束与反馈重规划；本文不对“首次”或产品成熟度作超出公开实验的判断。
 
 ## Cross-Paper Comparison
 
@@ -232,4 +233,4 @@ ReKep 是这条线的集大成：把 VoxPoser 的「value map」、CoPa 的「�
 
 4. **与端到端 VLA 的互补**。这条线的天花板是**感知精度**（深度/关键点错则全错）与**优化器的动作质量**（不会「学」出灵巧接触技巧）；VLA 的天花板是**数据**（要海量真机示范）与**可解释性**。可预见的融合是：**用这类几何约束/关键点作为 VLA 的中间监督或推理脚手架**（如 π0.5 的「先语义子任务再动作」、ReKep 的关键点可作 affordance 提示），让「大模型的语义」「显式的几何」「学习到的连续控制」三者各取所长。
 
-对后续 embodied foundation model 的启发：**接地表示的选择（value map / 部件约束 / 关键点）本身就是一种强归纳偏置**——它决定了系统能表达什么任务、需要什么感知、能否实时。training-free 一线证明了「不学策略也能开放世界操作」，但要走向高灵巧与鲁棒，几乎必然要与学习到的策略（VLA）缝合。
+对后续 embodied foundation model 的启发是：value map、部件约束和关键点会改变系统可表达的任务、所需感知输入与优化复杂度。Training-free 方法在若干开放词汇任务中减少了任务级策略训练，但在高频接触、感知失败和长时误差恢复方面仍有限；它们可以与学习策略结合，也可以继续沿显式规划路线改进，现有证据尚不能断言唯一方向。

@@ -1,8 +1,9 @@
 ---
 title: "Paper Notes: World Models"
 published: 2026-06-01
-description: 世界模型（world model）专题精读——Dreamer、DayDreamer、TD-MPC、RoboDreamer、FOCUS、JEPA、V-JEPA：从「在想象里学控制」到「非生成式的表征预测」，两条建模世界的路线。
-image: ''
+updated: 2026-09-11
+description: 比较 Dreamer、DayDreamer、TD-MPC、RoboDreamer、FOCUS、I-JEPA 与 V-JEPA，区分面向控制的潜在动力学和非生成式表征预测。
+image: '/paper-note/World-Model/Dreamer/architecture.png'
 tags: [Paper Notes, Robot Learning, World Model]
 category: Paper Notes
 draft: false
@@ -14,13 +15,13 @@ draft: false
 
 本篇把 world model 的代表作按**两条建模路线**串起来：
 
-> **生成式（reconstructive）**：预测未来的**像素/观测**（或其分布）。Dreamer 系、TD-MPC、RoboDreamer、FOCUS 都在此列——区别只在于「预测什么、在哪预测、怎么用来出动作」。
+> **生成式 / 重建式（reconstructive）**：预测未来的像素、观测或其分布，Dreamer、RoboDreamer、FOCUS 属于这一类。TD-MPC 更适合称为**任务导向的潜在动力学模型**：它预测控制所需的潜状态、奖励与价值，而不重建完整观测。
 >
 > **非生成式（predictive / JEPA）**：**只在表征空间预测**，不重建像素。JEPA / V-JEPA 是 LeCun 力推的这条线——赌「世界的可预测结构在抽象表征里，而非像素细节里」。
 
 七篇的定位：
 
-- **Dreamer** — 世界模型的现代范式：RSSM 潜空间 + **纯想象里学 actor-critic**，DreamerV3 一套超参通吃 150+ 任务。
+- **Dreamer** — RSSM 潜空间 + 想象轨迹中的 actor-critic；DreamerV3 在论文的 150 多项任务上使用同一组主要超参数。
 - **DayDreamer** — 把 Dreamer 直接搬上**真实机器人**在线学习，1 小时学会四足行走。
 - **TD-MPC** — 潜空间 MPC + **TD 学的终值函数**，model-based 与 model-free 的缝合。
 - **RoboDreamer** — **组合式**视频世界模型：把指令拆成原语、组合扩散模型，泛化到没见过的指令组合。
@@ -34,12 +35,12 @@ draft: false
 
 | 简称 | 年份 / Venue | 路线 | 预测什么 | 如何出动作 | 核心思想 |
 |:--|:--|:--|:--|:--|:--|
-| [Dreamer](#dreamer) | ICLR 2020→2023 | 生成式 | 未来潜状态 + 像素重建 | 想象里学 actor-critic | RSSM + latent imagination，V3 一套超参通吃 |
+| [Dreamer](#dreamer) | ICLR 2020→2023 | 生成式 | 未来潜状态 + 像素重建 | 想象里学 actor-critic | RSSM + latent imagination；V3 跨任务统一主要超参数 |
 | [DayDreamer](#daydreamer) | CoRL 2022 | 生成式 | 同上（真机在线） | 同上 | Dreamer 直接上真实机器人，1h 学会走 |
-| [TD-MPC](#td-mpc) | ICML 2022 | 生成式（任务导向潜空间） | 潜动态 + 奖励 + 终值 | 潜空间 MPC 规划 | 短程 MPPI 规划 + TD 终值，model-based×free |
+| [TD-MPC](#td-mpc) | ICML 2022 | 任务导向的潜在动力学 | 潜动态 + 奖励 + 终值 | 潜空间 MPC 规划 | 短程 MPPI 规划 + TD 终值，model-based×free |
 | [RoboDreamer](#robodreamer) | ICML 2024 | 生成式（视频） | 未来视频（组合式） | 视频→逆动力学 | 拆指令为原语、组合扩散，组合泛化 |
 | [FOCUS](#focus) | arXiv 2023 | 生成式（物体中心） | 物体分割/RGB/本体 | 物体中心探索 + 规划 | object-centric world model + 探索奖励 |
-| [JEPA](#jepa) | CVPR 2023 | **非生成** | target 块的**表征** | （表征预训练） | 从 context 预测 target 表征，不重建像素 |
+| [JEPA](#jepa) | ICCV 2023 | **非生成的静态表征学习** | target 块的**表征** | （表征预训练） | 时序 JEPA 的前身，而非控制模型 |
 | [V-JEPA](#v-jepa) | arXiv 2024 | **非生成（视频）** | 掩码时空块的**表征** | （表征预训练） | 纯特征预测，冻结骨干即强 |
 
 
@@ -50,7 +51,7 @@ draft: false
 **Dreamer / DreamerV3: Mastering Diverse Domains through World Models**
 
 :::note[一句话]
-世界模型的现代范式：用 **RSSM** 把高维观测压成紧凑潜状态并学习其动态，然后**完全在想象（latent rollouts）里**训练 actor-critic；DreamerV3 靠一组归一化/变换技巧（symlog、two-hot、free bits、KL balancing）做到**一套超参跨 150+ 任务**，并首次从零在 Minecraft 挖到钻石。
+Dreamer 使用 **RSSM** 将高维观测编码成潜状态并学习动态，再用 latent rollouts 训练 actor-critic。DreamerV3 结合 symlog、two-hot、free bits 和 KL balancing 等设计，在论文覆盖的 150 多项任务中使用同一组主要超参数；作者还报告它是首个在其设定中无需人类数据或课程、从零收集 Minecraft 钻石的算法。[DreamerV3](https://arxiv.org/abs/2301.04104)
 :::
 
 **年份 / Venue** Dream to Control（ICLR 2020）→ DreamerV2（ICLR 2021）→ **DreamerV3**（arXiv 2023）｜ **机构** DeepMind · Toronto ｜ **方向** Model-based RL, latent imagination ｜ **真机** 见 [DayDreamer](#daydreamer)
@@ -78,7 +79,7 @@ draft: false
 
 - **RSSM（Recurrent State-Space Model）**：世界模型的核心。用编码器把观测 $x_t$ 压成随机潜状态 $z_t$，配一个确定性循环状态 $h_t$；模型学习**转移**（给定 $h_t,a_t$ 预测下一个 $z$）、**观测重建**（解码回像素，提供学习信号）与**奖励/连续性预测**。
 - **想象里学 actor-critic**：世界模型学好后，从真实经验的潜状态出发，在**潜空间里 rollout** 一段想象轨迹；actor 最大化想象回报、critic 估值，**完全不碰真实环境**——这是样本效率的来源。
-- **DreamerV3 的鲁棒性配方**（让「一套超参通吃」成立的关键）：
+- **DreamerV3 的跨任务训练配方**：
   - **symlog** 变换压缩回报/值的尺度差异；
   - **two-hot** 离散回归让值/奖励预测更稳；
   - **free bits** 防止 KL 项塌缩；
@@ -133,11 +134,11 @@ Dreamer 定义了「**学世界模型 → 在想象里学策略**」这套现代
 
 ### Motivation
 
-深度 RL 要海量试错，真机上难承受，所以大家依赖仿真——但仿真有 sim-to-real gap、抓不住真实世界复杂度、学到的行为也不随世界变化而适应。Dreamer 在游戏里证明了「想象规划」能大幅省交互，但**它能不能让真实机器人学得更快，此前未知**。DayDreamer 就是来回答这个问题。
+深度 RL 往往需要大量交互，真机试错成本高，因此许多工作依赖仿真。Dreamer 的关键不是部署时执行显式 MPC 搜索，而是在学习到的潜在动力学中生成想象轨迹，并用这些轨迹训练 actor-critic。DayDreamer 进一步检验这种训练方式能否提高真实机器人的在线学习效率。
 
 ### Method
 
-- **在真机上在线学世界模型**：机器人边与真实世界交互边把经验存入 replay，**同时**持续训练 Dreamer 的世界模型（RSSM）与在想象里的 actor-critic——学习和采集**并行**，无需仿真、无需人工 reset。
+- **在真机上在线学世界模型**：机器人边与真实世界交互边把经验存入 replay，同时持续训练 Dreamer 的世界模型（RSSM）与想象轨迹中的 actor-critic。实验不使用仿真；其中四足 A1 的自翻身、站立和行走训练无需人工 reset，这一条件不能直接外推到全部机器人任务。
 - **从像素 + 稀疏奖励**：机械臂任务直接从相机图像和稀疏奖励学，逼近人类表现；轮式机器人纯从相机导航并自动消解朝向歧义。
 - **同一套超参**：四个差异极大的机器人/任务共用 Dreamer 超参，说明范式的通用性。
 
@@ -151,7 +152,7 @@ Dreamer 定义了「**学世界模型 → 在想象里学策略**」这套现代
 
 ### Strengths and Limitations
 
-**Strengths**：证明世界模型能让**真实机器人**在**分钟-小时**级别在线学会技能，无仿真、无 reset；对扰动**在线适应**；释放了真机 world-model 训练基础设施。
+**Strengths**：论文在四类真实机器人上展示了无需仿真的在线学习；其中四足 A1 在约 1 小时内学习翻身、站立和行走且无需人工 reset，并在扰动后继续在线适应。两个机械臂与轮式机器人也使用同一组主要超参数，但“无 reset”不是全部实验的共同条件。[原论文](https://arxiv.org/abs/2206.14176)
 
 **局限（分析）**：真机在线学习对安全/损耗敏感（尤其无 reset 的探索阶段）；奖励仍需人工设计（稀疏奖励也要能测量）；任务复杂度与时长仍受限，离长时程灵巧操作尚远；继承 Dreamer 的像素重建负担。
 
@@ -166,7 +167,7 @@ DayDreamer 是「世界模型 = 省数据」这一主张在**物理机器人**�
 **TD-MPC: Temporal Difference Learning for Model Predictive Control**
 
 :::note[一句话]
-把 model-based 与 model-free 缝起来：学一个**任务导向的潜动态模型（TOLD）**，在潜空间用 **MPPI/CEM 做短程轨迹规划**，并用 **TD 学到的终值函数**补上规划视野之外的长期回报——不重建像素，只建「对任务有用」的潜空间。
+TD-MPC 结合学习到的任务导向潜动态模型（TOLD）和价值学习：在潜空间用采样式 **MPPI** 优化做短程轨迹规划，并用 TD 学到的终值函数估计规划视野之外的回报。它不重建像素，而是学习与任务决策相关的潜表示。
 :::
 
 **年份 / Venue** ICML 2022 ｜ **机构** UC San Diego ｜ **方向** Latent MPC, model-based RL ｜ **真机** 仿真连续控制（后续 TD-MPC2 扩展）
@@ -193,7 +194,7 @@ Model-based 有两大优势：模型学习带来样本效率、规划算力越�
 ### Method
 
 - **TOLD（Task-Oriented Latent Dynamics）模型**：编码器把观测映到潜表征 $z$，学习潜空间的**转移**与**奖励**预测；它**不重建观测**，只优化与任务/值相关的量 → 潜空间更紧凑、更抗无关细节。
-- **潜空间规划**：每步用 **MPPI（或 CEM）** 在潜空间对**短视野 $H$** 做采样式轨迹优化，累加预测奖励。
+- **潜空间规划**：每步用论文采用的 **MPPI** 风格采样优化器，在潜空间对短视野 $H$ 的动作序列进行评估和迭代。
 - **TD 终值**：规划视野末端接一个**学到的终值函数** $Q/V$（由 **temporal difference** 学习），把 $H$ 步之外的长期回报估进来。模型、奖励、值**联合由 TD 训练**。
 - 规划得到动作序列，执行第一个动作，下一步重规划（MPC 风格）。
 
@@ -225,7 +226,7 @@ TD-MPC 把「世界模型」窄化为「**对规划有用的潜动态**」，并
 把「文本→视频」世界模型做成**组合式**：用语言的天然组合性把指令拆成低层原语（动作短语 / 关系短语），对每个原语条件一个扩散模型再**组合**生成视频，从而泛化到训练时**没见过的指令组合**，还能加入目标图像等多模态目标。
 :::
 
-**年份 / Venue** ICML 2024 ｜ **机构** HKUST · MIT · UMass Amherst · Google（Yilun Du、Chuang Gan 等）｜ **方向** Compositional video world model ｜ **真机** 仿真执行 + RT-X 数据
+**年份 / Venue** ICML 2024 ｜ **机构** HKUST · MIT · UMass Amherst · Google（Yilun Du、Chuang Gan 等）｜ **方向** Compositional video world model ｜ **评测范围** RT-X 真实机器人数据训练 + 论文规定的仿真/视频规划评测
 
 **材料** [Paper](https://arxiv.org/abs/2404.12377) · [Project](https://robovideo.github.io/)
 
@@ -245,7 +246,7 @@ TD-MPC 把「世界模型」窄化为「**对规划有用的潜动态**」，并
 
 ### Motivation
 
-「文本→视频」模型可以**想象未来动作计划**、当环境模拟器，在机器人决策里很有潜力（如 UniPi）。但**泛化差**：只会生成与训练指令相似的视频。决策却恰恰需要**对没见过的物体/动作组合**合成计划来解决新任务。RoboDreamer 想让视频世界模型具备**组合泛化**。
+文本条件视频模型可以生成候选未来观测，并与逆动力学模型组合成动作规划管线。已有方法在未见指令组合上容易退化；RoboDreamer 因此把语言指令分解成可组合原语，研究视频世界模型的组合泛化。
 
 ### Method
 
@@ -300,7 +301,7 @@ RoboDreamer 代表 world model 的另一支：**用大规模视频生成当世�
 
 ### Motivation
 
-「用物体以及和物体可能的交互来理解世界」是重要的认知能力,操作任务尤其如此(大量任务就是机器人-物体交互)。但学一个**显式捕捉实体与关系**的结构化世界模型仍是难题——主流 world model(如 Dreamer)用**单一全局潜向量**表示整个场景,物体信息被糊在一起,既难精确预测物体、也难有针对性地探索物体交互。
+机器人操作需要区分场景中的对象及其交互。Dreamer 的 RSSM 使用确定性递归状态与随机潜状态共同表示整体观测，并不显式分配对象槽；这种全局表示不保证各对象可独立寻址。FOCUS 因此研究显式对象中心表示是否能改善对象预测与探索。
 
 ### Method
 
@@ -313,7 +314,7 @@ RoboDreamer 代表 world model 的另一支：**用大规模视频生成当世�
 ### Experiments
 
 - **设置**：不同 setting 的操作任务(仿真:cube/stack/faucet/banana 等 + 真机)。
-- **结论(官方)**:物体中心世界模型让物体预测更准、探索机器人-物体交互更**一致**,解任务更高效;与 **DreamerV2** 的全局潜向量重建对比,FOCUS 对场景中物体的重建/预测更清晰。逐任务数值**未逐一核到**。
+- **结果**：论文在其仿真和真机设置中报告，对象中心表示相对 DreamerV2 基线改善了对象重建、预测以及面向对象交互的探索效率。本文不跨任务汇总未在同一指标下报告的数字。
 
 ### Strengths and Limitations
 
@@ -335,7 +336,7 @@ FOCUS 代表 world model 的「**结构化**」支线:不追求一个更大的�
 LeCun 力推的**非生成式**世界模型雏形:从一个 context 块去预测同图多个 target 块的**表征(而非像素)**;用 context/target 编码器 + predictor,靠合适的掩码策略学到高语义表征,不重建像素、不用手工数据增强。
 :::
 
-**年份 / Venue** CVPR 2023 ｜ **机构** Meta AI (FAIR) · McGill · Mila (Assran、LeCun、Ballas 等) ｜ **方向** Non-generative self-supervised learning (JEPA) ｜ **真机** —(表征预训练)
+**年份 / Venue** ICCV 2023 ｜ **机构** Meta AI (FAIR) · McGill · Mila (Assran、LeCun、Ballas 等) ｜ **方向** Non-generative self-supervised image representation learning ｜ **控制用途** 无；这是静态图像表征预训练方法
 
 **材料** [Paper](https://arxiv.org/abs/2301.08243) · [Code](https://github.com/facebookresearch/ijepa)
 
@@ -347,7 +348,7 @@ LeCun 力推的**非生成式**世界模型雏形:从一个 context 块去预测
   title     = {Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture},
   author    = {Assran, Mahmoud and Duval, Quentin and Misra, Ishan and Bojanowski, Piotr
                and Vincent, Pascal and Rabbat, Michael and LeCun, Yann and Ballas, Nicolas},
-  booktitle = {IEEE/CVF International Conference on Computer Vision (ICCV/CVPR)},
+  booktitle = {IEEE/CVF International Conference on Computer Vision (ICCV)},
   year      = {2023},
   url       = {https://arxiv.org/abs/2301.08243}
 }</code></pre>
@@ -355,7 +356,7 @@ LeCun 力推的**非生成式**世界模型雏形:从一个 context 块去预测
 
 ### Motivation
 
-生成式自监督(如 MAE)要**重建像素**,会把算力浪费在与语义无关的高频细节上;对比学习又高度依赖**手工数据增强**。JEPA 的赌注(源自 LeCun 2022 的路线图):**世界的可预测结构在抽象表征里,不在像素里**——所以应该在**表征空间**做预测。I-JEPA 是这一思想在图像上的落地:学高语义表征,**既不重建像素、也不靠手工增强**。
+I-JEPA 的研究动机是：像素重建会把建模能力分配给许多下游任务并不关心的细节，而对比学习常依赖较强的数据增强。它改为在表征空间预测被遮挡区域，并通过目标块尺度和上下文采样策略引导模型学习语义特征。这是论文提出并由下游实验支持的设计选择，不意味着像素重建在所有任务中都“浪费算力”。
 
 ### Method
 
@@ -379,7 +380,7 @@ LeCun 力推的**非生成式**世界模型雏形:从一个 context 块去预测
 
 ### Takeaways
 
-I-JEPA 把 LeCun「非生成世界模型」的主张落到图像上,证明**在表征空间预测**既省算力又更语义。它是与 Dreamer/生成式一线**正交**的路线——不预测「世界长什么样」,只预测「世界的表征」。V-JEPA 把它推向视频与时间。
+I-JEPA 在静态图像上验证了表征空间预测可以获得有竞争力的下游表示，并展示了较好的训练扩展性。它不建模动作或时间动力学，因此本身不是机器人控制意义上的 world model；V-JEPA 才把该目标扩展到视频时序。[原论文](https://arxiv.org/abs/2301.08243)
 
 ::::paper{tone="vjepa"}
 
@@ -410,7 +411,7 @@ I-JEPA 把 LeCun「非生成世界模型」的主张落到图像上,证明**在�
 
 ### Motivation
 
-I-JEPA 证明了「表征空间预测」在图像上可行,但**世界是动态的**——真正的世界模型必须建**时间**。V-JEPA 问:**只用特征预测(feature prediction)、不加任何其他监督**,能不能从视频里学到通用视觉表征?这既是把 JEPA 推向时序,也是对「视频自监督到底需不需要像素重建/文本/负样本」的一次干净消融。
+I-JEPA 在静态图像上展示了表征空间预测的可行性；V-JEPA 将目标扩展到视频，研究仅使用 feature prediction、而不依赖像素重建、文本或负样本时，能否学习可迁移的视频表征。时间建模对控制类世界模型很重要，但是否必须显式建模时间取决于“world model”的具体定义和用途。
 
 ### Method
 
@@ -427,7 +428,7 @@ I-JEPA 证明了「表征空间预测」在图像上可行,但**世界是动态�
 
 ### Strengths and Limitations
 
-**Strengths**:把 JEPA 干净地推广到**视频/时间**,并以「五不用」证明**特征预测是自洽的强目标**;冻结骨干即强,运动+外观双好;是「视频=世界模型」非生成路线的标杆。
+**Strengths**：V-JEPA 将 JEPA 目标扩展到视频，在不使用像素重建、文本监督或负样本的设置下训练，并在冻结编码器评测中取得有竞争力的动作与图像任务结果。这支持 feature prediction 作为视频自监督目标的有效性，但不意味着它在所有任务上优于生成式目标。[原论文](https://arxiv.org/abs/2404.08471)
 
 **局限(分析)**:仍是**表征学习**,本体不是策略/规划器(要接下游);冻结评测虽说明表征质量,但动作/控制上的用处需 V-JEPA 2 等后续验证;时空掩码与 predictor 设计影响大;对精细像素级任务(需重建)非其所长。
 
@@ -464,4 +465,4 @@ V-JEPA 把非生成世界模型从图像推到视频,坐实了 LeCun 路线「**
 
 3. **结构化 vs 规模化**。FOCUS(物体中心)、RoboDreamer(组合式)代表「**注入结构先验**」的支线,和 Dreamer/V-JEPA「**堆规模 + 通用架构**」形成张力——这与 [Robot Learning (3)](/blog/posts/paper-notes-robot-learning-3/) 里 CoPa/ReKep 给 policy 注入几何结构的思路一脉相承。
 
-4. **与 VLA/端到端策略的关系**。[Robot Learning (2)](/blog/posts/paper-notes-robot-learning-2/) 的 π0 系列直接学「观测→动作」;world model 则多学一层「世界会怎样」。二者正在合流:**V-JEPA 2 把非生成世界模型用作机器人规划**、RoboDreamer/UniPi 把视频生成当策略、Dreamer 式想象被并入更大的 embodied 系统。可以预期,未来的 embodied foundation model 会同时具备「**预测世界**(world model)」与「**决定动作**(policy)」两种能力,而**在哪个抽象层级预测**,仍会是核心设计选择。
+4. **与 VLA/端到端策略的关系。** [Robot Learning (2)](/blog/posts/paper-notes-robot-learning-2/) 的 π0 系列直接学习观测到动作的条件分布；world model 额外学习环境动态或未来表示。V-JEPA 2、RoboDreamer 和 Dreamer 系分别展示了表征预测、视频生成和潜在想象如何参与规划或策略训练。是否在统一模型中同时保留世界预测与动作输出，以及在哪个抽象层级预测，仍需要任务级实验比较。

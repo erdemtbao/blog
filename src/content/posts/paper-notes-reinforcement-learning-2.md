@@ -1,8 +1,8 @@
 ---
 title: "Paper Notes: Reinforcement Learning (2)"
 published: 2026-03-17
-description: 深度强化学习算法精读——DQN、DDPG、PPO、SAC、CQL、IQL、QRL（Quasimetric RL）、DPO、GRPO。从深度价值/连续控制到离线 RL 再到 LLM 后训练。
-image: ''
+updated: 2026-09-11
+description: 比较 DQN、DDPG、PPO、SAC、CQL、IQL、QRL、DPO 与 GRPO 的训练目标、数据要求、稳定性机制和适用场景。
 tags: [Paper Notes, Reinforcement Learning]
 category: Paper Notes
 draft: false
@@ -27,7 +27,7 @@ draft: false
 | [DQN](#dqn) | Nature 2015 | 深度价值 | Q-learning | 神经网络逼近 Q + 经验回放 + 目标网络 |
 | [DDPG](#ddpg) | ICLR 2016 | 连续控制 | DPG + DQN | 确定性 actor-critic + 软目标更新 |
 | [PPO](#ppo) | arXiv 2017 | on-policy | TRPO | 裁剪替代目标限制更新幅度 |
-| [SAC](#sac) | ICML 2018 | 最大熵 off-policy | DDPG/TD3 | 熵正则 + 双 Q + 重参数化随机策略 |
+| [SAC](#sac) | ICML 2018 | 最大熵 off-policy | 最大熵 RL / actor-critic | 熵正则 + 双 Q + 重参数化随机策略 |
 | [CQL](#cql) | NeurIPS 2020 | 离线 RL | Q-learning | 保守项压低 OOD 动作的 Q，得下界 |
 | [IQL](#iql) | ICLR 2022 | 离线 RL | Q-learning | expectile 回归隐式取 max，不查 OOD |
 | [QRL](#qrl) | ICML 2023 | 目标条件 RL | — | 拟度量建模最优目标可达距离 |
@@ -69,7 +69,7 @@ draft: false
 
 ### Motivation
 
-表格型 Q-learning 在小状态空间可证明收敛，但面对 Atari 这种**高维像素输入**必须用函数逼近。而「非线性逼近 + 自举 + 离策略」正是 Sutton 所说的**致命三要素（deadly triad）**，直接训练极易发散：相邻帧高度相关、目标随参数漂移。DQN 的贡献不是提出 Q-learning，而是给出**让它在深度网络下稳定收敛的工程配方**。
+表格型 Q-learning 在有限状态空间和标准随机逼近条件下可证明收敛，但 Atari 的高维像素输入需要函数逼近。「函数逼近 + 自举 + 离策略」会带来著名的 **deadly triad** 风险；相邻帧相关、TD 目标随参数变化也使优化更困难。DQN 的贡献不是提出 Q-learning，而是用经验回放、目标网络和卷积网络，在论文的 Atari 设置中显著改善了训练稳定性；这不是对任意深度 Q-learning 的收敛保证。
 
 ### Method
 
@@ -85,14 +85,14 @@ $$
 ### Experiments
 
 - **基准**：49 个 Atari 游戏，**同一套网络结构与超参数**，仅以原始像素与得分为输入/信号。
-- **结果（原文明确报告）**：DQN 达到「与专业人类游戏测试者相当」的水平；在 **49 个游戏中的 29 个**上得分**高于人类的 75%**。
+- **论文结果**：按论文采用的人类归一化评测口径，DQN 的总体表现达到专业人类测试者水平；在 **49 个游戏中的 29 个**上，得分超过人类基线的 75%。
 - **消融**：去掉经验回放或目标网络都会显著掉分，验证这两件稳定化设计的必要性。
 
 ### Strengths and Limitations
 
-**Strengths**：首次证明「像素到动作」的端到端深度 RL 可行且通用；经验回放 + 目标网络成为后续几乎所有 off-policy 深度 RL 的标配。
+**Strengths**：DQN 在统一架构和训练流程下，从像素输入学习多个 Atari 游戏，并达到当时很强的平均表现；经验回放与目标网络随后被许多 off-policy 深度 RL 方法采用。该结果限于论文的游戏与评测协议，不代表对所有像素控制任务都通用。
 
-**局限**：只处理**离散、低维动作**；$\max$ 算子带来系统性**Q 过估计**（后由 Double DQN 缓解）；样本效率低（需上亿帧）；对奖励尺度与超参敏感。后续 Double DQN、Dueling、Prioritized Replay、Rainbow 等逐一改进。
+**局限**：只处理**离散动作**；当多个动作价值估计含噪时，$\max$ 算子可能产生正向的 **Q 过估计偏差**（Double DQN 针对此问题解耦动作选择与评估）；原论文训练使用了数量级很高的游戏帧，且结果对奖励处理与超参数敏感。后续 Double DQN、Dueling、Prioritized Replay、Rainbow 分别从不同侧面扩展了这一框架。
 
 ### Takeaways
 
@@ -186,7 +186,7 @@ DDPG 打通了「DQN 稳定化技巧 → 连续动作」的路径，但它的脆
 
 ### Motivation
 
-策略梯度对步长极敏感：走大了会把策略推到回报塌陷的区域，且 on-policy 数据一旦策略变差就作废。TRPO 用硬 KL 信赖域约束解决稳定性，但要算二阶量、实现复杂。PPO 想用**只需一阶 SGD** 的目标达到类似的「不要一步走太远」效果。
+策略梯度对更新幅度较敏感：更新过大可能使策略性能突然下降。TRPO 用近似信赖域约束限制策略变化，但实现和计算较复杂；PPO 则用一阶优化和裁剪替代目标，近似实现「不要一步走太远」。
 
 ### Method
 
@@ -211,7 +211,7 @@ $$
 
 **Strengths**：实现简单、对超参相对宽容、跨任务鲁棒，是仿真机器人、游戏、以及 **RLHF/LLM 后训练**中最常用的强基线。
 
-**局限**：**on-policy → 样本效率低**（每次更新后旧数据基本作废）；裁剪是启发式而非严格信赖域，理论保证弱于 TRPO；对优势归一化、学习率、epoch 数等实现细节仍较敏感。
+**局限**：PPO 主要依赖当前策略收集的 rollout，通常会对同一批数据训练多个 epoch，但不能像标准 off-policy 算法那样长期、任意复用旧数据，因此样本效率往往较低；裁剪是启发式近端约束，对优势归一化、学习率和 epoch 数等实现细节仍较敏感。
 
 ### Takeaways
 
@@ -274,7 +274,7 @@ $$
 
 ### Takeaways
 
-SAC 把 DQN 以来悬而未决的**过估计**（双 Q min）与**探索**（熵正则）在一个框架内一并解决，是深度价值/演员-评论家这条线的集大成者。接下来问题从「怎么在线学好」转向「**只有固定数据集时怎么办**」——进入离线 RL。
+SAC 在最大熵 actor-critic 框架中结合随机策略、熵正则和双 Q：熵项鼓励策略保持探索，双 Q 取较小值用于缓解价值过估计。这些设计提高了若干连续控制任务中的样本效率和稳定性，但并不消除所有探索或估计误差。接下来转向只有固定数据集可用时的离线 RL。
 
 ::::paper{tone="cql"}
 
@@ -449,7 +449,7 @@ QRL 与 CQL/IQL 都属「跳出朴素 TD」，但角度不同：离线 RL 修的
 **Direct Preference Optimization: Your Language Model is Secretly a Reward Model**
 
 :::note[一句话]
-RLHF 要先训奖励模型再用 PPO，链路长且不稳。DPO 证明：在 KL 约束的 RLHF 目标下，**语言模型自身就是隐式奖励模型**，于是偏好学习可化为一个**简单的分类损失**，无需奖励模型、无需 RL 采样循环。
+经典 PPO-RLHF 通常先训练奖励模型，再用该模型提供的奖励更新策略，训练链路较长。DPO 在固定参考策略、KL 正则化奖励目标和成对偏好模型等假设下，对奖励与最优策略进行重参数化，把偏好学习写成一个分类式损失；训练阶段不需要显式奖励模型，也不需要在线 RL 采样循环。[原论文](https://arxiv.org/abs/2305.18290)
 :::
 
 **年份 / Venue** NeurIPS 2023 ｜ **机构** Stanford ｜ **方向** LLM 对齐 / RL-free 偏好优化 ｜ **基准** 情感生成、摘要、单轮对话等
@@ -541,7 +541,7 @@ GRPO 是 PPO 的变体：对同一提示**采样一组 $G$ 个回答**，用**�
 
 ### Motivation
 
-PPO 在 LLM 上要额外训一个与策略同规模的 **value 网络**估基线——显存翻倍、且对逐 token 价值的估计在长序列上噪声大。但 LLM 推理任务的奖励往往是**序列级、可验证**的（答案对/错）。既然如此，何不用「**同一题多采几个答案、相互比较**」来得到基线，省掉 critic？
+在常见的 PPO 式 LLM 训练配置中，通常还要训练一个 **value model** 估计基线，这会增加显存和计算开销；长序列上的逐 token 价值估计也可能噪声较大。对于具有**序列级可验证奖励**的推理任务，GRPO 改为对同一提示采样一组回答，并用组内相对奖励构造优势估计，从而不再单独训练 critic。
 
 ### Method
 
@@ -573,7 +573,7 @@ $$
 
 ### Takeaways
 
-GRPO 与 [DPO](#dpo) 是 LLM 后训练的两种当红路线：DPO 免 RL、吃**偏好对**；GRPO 保留 RL、吃**可验证奖励**并用组内比较省掉 critic。二者都可视作把经典 RL（[PPO](#ppo) / RLHF）为语言生成场景做的**目标函数简化**。
+GRPO 与 [DPO](#dpo) 使用不同反馈：DPO 直接优化离线偏好对，GRPO 使用一组 rollout 的相对奖励估计优势并省去独立价值网络。前者不执行 RL 采样循环，后者仍属于策略优化；不能仅按“都在简化 PPO”理解。
 
 ## Cross-Paper Comparison
 
@@ -585,16 +585,16 @@ GRPO 与 [DPO](#dpo) 是 LLM 后训练的两种当红路线：DPO 免 RL、吃**
 | SAC | 最大熵 AC | off | 连续 | 是（双 Q） | 过估计 + 探索 + 稳定性 |
 | CQL | 离线 RL | offline | 连续/离散 | 是（Q） | OOD 动作 Q 高估（显式压制→下界） |
 | IQL | 离线 RL | offline | 连续/离散 | 是（Q,V） | OOD 查询本身（expectile 隐式回避） |
-| QRL | 目标条件 | 皆可 | 连续/离散 | 否（拟度量距离场） | 最优目标可达价值的结构建模 |
+| QRL | 目标条件 | 皆可 | 连续/离散 | 学习拟度量价值模型；无传统 actor-critic 组合 | 最优目标可达价值的结构建模 |
 | DPO | LLM 对齐 | offline | 离散 token | 否 | RLHF 链路长/不稳（重参数化掉奖励） |
-| GRPO | LLM 后训练 | on（近） | 离散 token | 否（组内基线） | PPO 的 value 网络开销 |
+| GRPO | LLM 后训练 | rollout-based；近似 on-policy | 离散 token | 否（组内基线） | PPO 的 value 网络开销 |
 
 ## Discussion
 
-1. **一条不断简化的主线。** DQN → DDPG → SAC 是「往框架里加技巧」（回放、目标网络、双 Q、熵）；而 IQL、QRL、DPO、GRPO 却在**做减法**——IQL 减掉 OOD 查询，QRL 减掉 TD 自举，DPO 减掉奖励模型与 RL 循环，GRPO 减掉 value 网络。成熟往往体现为**知道哪个组件可以拿掉**。
+1. **方法并非单一线性谱系。** DQN、DDPG、SAC 都使用离策略价值学习中的稳定化组件，但 SAC 还来自最大熵 RL；IQL 关注离线数据的 OOD 查询，QRL 利用目标条件价值的拟度量结构，DPO 和 GRPO 则分别改变偏好优化与优势估计方式。比较它们时，更重要的是训练数据、目标函数和适用场景，而不是简单理解为“加组件”或“减组件”。
 
 2. **过估计是一根暗线。** DQN 的 $\max$、DDPG 的确定性放大、离线 RL 的 OOD 自举，本质都是「对没充分验证的动作过度乐观」。SAC/TD3 用双 Q min、CQL 用保守下界、IQL 用不查 OOD——都是同一病的不同药方。
 
-3. **on-policy vs off-policy vs offline 的取舍。** off-policy/offline 样本效率高但易受分布偏移之害；on-policy（PPO/GRPO）稳但每次更新后数据作废、样本贵。选择取决于「交互便宜还是数据便宜」。
+3. **on-policy、off-policy 与 offline 的取舍。** off-policy 方法能长期复用历史数据，但要处理分布偏移与估计误差；PPO/GRPO 一类 rollout-based 方法通常让数据更接近当前策略，并可对一批 rollout 做有限轮更新，但样本复用程度较低；纯 offline 方法则完全依赖固定数据集。选择取决于交互成本、数据覆盖范围和稳定性要求。
 
-4. **经典 RL 与 LLM 后训练同源。** DPO 是带 KL 约束 RLHF 的闭式解，GRPO 是 PPO 去 critic 的变体——LLM 后训练不是另起炉灶，而是把 [策略梯度](/blog/posts/paper-notes-reinforcement-learning-1/#policy-gradient) 这套东西**为「奖励可验证/只有偏好」的语言场景重新裁剪**。理解经典 RL 仍是理解它们的前提。
+4. **经典 RL 与 LLM 后训练共享部分数学工具，但不能完全等同。** DPO 利用带 KL 正则的奖励最优化问题中最优策略与奖励的关系，把偏好学习改写为直接分类损失；GRPO 则是无需单独价值模型的一类 rollout-based 策略优化方法。它们分别面向“只有偏好”和“奖励可验证”等语言模型场景，和经典策略优化有联系，也各自引入了新的数据假设与训练约束。

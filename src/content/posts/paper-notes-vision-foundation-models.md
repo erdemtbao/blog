@@ -1,8 +1,9 @@
 ---
 title: "Paper Notes: Vision Foundation Models"
 published: 2026-02-21
-description: 视觉/多模态基础模型精读——CLIP、SigLIP、DINOv2、DINOv3、LLaVA、Qwen-VL、InternVL、FoundationPose、SAM3、SAM3D。从图文对比与自监督表征，到视觉指令微调 VLM，再到 6D 位姿与开放词汇分割 / 单图到 3D 的十块视觉基石。
-image: ''
+updated: 2026-09-11
+description: 比较 CLIP、SigLIP、DINOv2/3、LLaVA、Qwen-VL、InternVL、FoundationPose、SAM3 与 SAM3D，覆盖表征学习、视觉语言、6D 位姿、分割和单图 3D。
+image: '/paper-note/Vision_Foundation_Models/CLIP/pipeline.png'
 tags: [Paper Notes, Vision Foundation Models]
 category: Paper Notes
 draft: false
@@ -15,10 +16,10 @@ draft: false
 按「学什么表征 → 怎么接语言 → 怎么做几何/分割」三条线索组织（顺序从早到近、从简到繁，同一系列相邻）：
 
 - **图文对比 & 自监督表征**——[CLIP](#clip)（图文对比学习得到可迁移视觉塔）→ [SigLIP](#siglip)（sigmoid 损失替代 softmax，去掉全局归一化）；[DINOv2](#dinov2)（纯视觉自监督 + 数据管线）→ [DINOv3](#dinov3)（进一步 scaling，Gram anchoring 保住稠密特征）。这四个回答「怎么学一个好用的视觉编码器」。
-- **视觉语言模型（VLM）**——[LLaVA](#llava)（视觉编码器 + 投影 + LLM 的指令微调范式）→ [Qwen-VL](#qwen-vl)（工业级多语种，带 grounding / OCR）→ [InternVL](#internvl)（大视觉编码器 + 动态高分辨率的开源系列）。这三条线共享「冻结/半冻结视觉塔 + 适配器 + LLM」的骨架。
+- **视觉语言模型（VLM）**——[LLaVA](#llava)（视觉编码器 + 投影 + LLM 的指令微调范式）→ [Qwen-VL](#qwen-vl)（多语种，带 grounding / OCR）→ [InternVL](#internvl)（大视觉编码器 + 动态高分辨率的开放权重系列）。这三条线共享视觉塔、跨模态连接模块与 LLM 的基本组合，但训练时是否冻结视觉塔并不相同。
 - **几何与分割基础模型**——[FoundationPose](#foundationpose)（新物体 6D 位姿估计与跟踪）；[SAM3](#sam3)（可提示概念分割）→ [SAM3D](#sam3d)（单图到 3D 重建）。这三个直接对接机器人感知管线。
 
-一条主线贯穿全篇：**先用大规模（弱）监督学一个通用视觉表征，再按下游需要接上语言、几何或分割头。** CLIP/SigLIP 用文本当监督，DINO 系用图像自身当监督，VLM 把视觉塔接进 LLM，SAM/FoundationPose 则把表征专门化到分割与位姿。视觉塔的选型（CLIP / SigLIP / DINO / InternViT）几乎决定了上层 VLM 与 VLA 的上限。
+这些工作使用不同监督信号：CLIP/SigLIP 使用图文对，DINO 系使用图像自身，VLM 将视觉表示接入语言模型，SAM 与 FoundationPose 则针对分割和位姿任务训练。视觉塔会影响上层系统，但动作数据、跨模态对齐、分辨率、后训练和闭环控制同样重要，不能只凭视觉 backbone 推断 VLM 或 VLA 的能力上限。
 
 ## Paper List
 
@@ -29,7 +30,7 @@ draft: false
 | [DINOv2](#dinov2) | arXiv 2023 | 视觉自监督 | 精选数据 + 判别式 SSL，强稠密特征 |
 | [DINOv3](#dinov3) | arXiv 2025 | 大规模 SSL | Gram anchoring 保稠密特征，单骨干免微调 |
 | [LLaVA](#llava) | NeurIPS 2023 | 视觉指令微调 | GPT-4 造指令数据，投影层接 LLM |
-| [Qwen-VL](#qwen-vl) | arXiv 2023 | 工业 VLM | 视觉适配器压 token，带 grounding / OCR |
+| [Qwen-VL](#qwen-vl) | arXiv 2023 | 多语种 VLM | 视觉适配器压 token，带 grounding / OCR |
 | [InternVL](#internvl) | CVPR 2024 | 开源大 VLM | InternViT-6B 视觉编码器渐进对齐 LLM |
 | [FoundationPose](#foundationpose) | CVPR 2024 | 6D 位姿 | 新物体位姿估计+跟踪，测试免微调 |
 | [SAM3](#sam3) | arXiv 2025 | 概念分割 | 可提示概念分割（PCS），图像+视频统一 |
@@ -132,7 +133,7 @@ CLIP 的 softmax 对比损失要在**整个 batch 的所有图文对上做全局
 
 ### Experiments
 
-- **SigLiT** 变体仅用 **4 块 TPUv4、两天**就达到 **84.5% ImageNet 零样本精度**（原文报告，予以保留）。
+- 论文报告 **SigLiT** 变体使用 4 块 TPUv4 训练两天，在其 ImageNet zero-shot 评测设置中达到 84.5%；硬件、训练数据和评测协议都是该数字的一部分。
 - 探索到百万级 batch，但发现 **32k batch 已基本足够**——推翻了「对比学习越大 batch 越好」的直觉。
 
 ### Strengths and Limitations
@@ -157,7 +158,7 @@ CLIP 的 softmax 对比损失要在**整个 batch 的所有图文对上做全局
 
 **年份 / Venue** arXiv 2023（TPAMI，2304.07193）｜ **机构** Meta AI ｜ **方向** 视觉自监督 / 稠密特征 ｜ **基准** 图像级 + 像素级多任务
 
-**材料** [Paper](https://arxiv.org/abs/2304.07193) · [Project](https://ai.meta.com/dinov2/) · [Code](https://github.com/facebookresearch/dinov2)
+**材料** [Paper](https://arxiv.org/abs/2304.07193) · [Code / Models](https://github.com/facebookresearch/dinov2)
 
 ::::
 
@@ -181,7 +182,7 @@ CLIP 的 softmax 对比损失要在**整个 batch 的所有图文对上做全局
 ### Method
 
 - **判别式自蒸馏**：组合 DINO（图像级）+ iBOT（patch 级）目标，配 centering / Sinkhorn-Knopp 稳定训练、KoLeo 正则鼓励特征均匀分布。
-- **数据管线（本页配图）**：从海量未精选图像出发，用 embedding 做**去重 + 检索**，向已精选种子集对齐，自动构建多样且干净的 **LVD-142M**。数据质量被证明和算法同等重要。
+- **数据管线（本页配图）**：从海量未精选图像出发，用 embedding 做去重与检索，向已精选种子集对齐，构建 LVD-142M。论文消融说明该数据整理流程对结果重要，但不能据此给“数据质量”和“算法”赋予可普遍比较的同等权重。
 - **规模 + 蒸馏**：先训 10 亿参数 ViT-g，再**蒸馏**到 ViT-S/B/L 等小模型，兼顾性能与部署。
 
 ### Experiments
@@ -242,7 +243,7 @@ DINOv2 已证明 SSL 能出好特征，但**训练一拉长、稠密特征图就
 ### Experiments
 
 - 无需任务特定适配，**稠密特征质量超越专门的自监督 / 弱监督基础模型**（原文结论）。
-- **未核到精确值**：摘要只说「更大规模」，未给确切参数量 / 数据量，故此处不引用具体数字。
+- **结果口径**：这里只记录论文摘要和表格能够直接支持的规模与下游结果，不根据项目宣传材料补写参数量或数据量。
 
 ### Strengths and Limitations
 
@@ -261,7 +262,7 @@ DINOv2 已证明 SSL 能出好特征，但**训练一拉长、稠密特征图就
 **Visual Instruction Tuning**
 
 :::note[一句话]
-首次用 **GPT-4 合成多模态指令跟随数据**，把冻结的 CLIP 视觉编码器经一层**投影**接到 LLM 上端到端微调，开启「聊天式视觉理解」范式。它的「视觉塔 + 投影 + LLM」骨架成为后续开源 VLM 的默认模板。
+LLaVA 使用 **GPT-4 辅助构造多模态指令跟随数据**，通过投影层连接冻结的 CLIP 视觉编码器与 LLM，再进行分阶段训练。视觉塔、连接模块与 LLM 的组合随后被多项开放 VLM 工作采用，但具体冻结策略和连接结构并不统一。
 :::
 
 **年份 / Venue** NeurIPS 2023（arXiv 2304.08485）｜ **机构** UW–Madison · Microsoft（Liu, Li, Wu, Lee）｜ **方向** 视觉指令微调 / VLM ｜ **基准** ScienceQA、多模态对话
@@ -295,7 +296,7 @@ DINOv2 已证明 SSL 能出好特征，但**训练一拉长、稠密特征图就
 
 ### Experiments
 
-- **ScienceQA 上与 GPT-4 协同微调达 92.53% SOTA**（原文报告，予以保留）。
+- 论文在 ScienceQA 上报告 92.53%，该结果使用 GPT-4 协同产生/处理的数据与预测；“SOTA”仅指论文发表时的对应评测设置。
 - 在作者构造的多模态指令基准上，达到约 **GPT-4 的 85%** 相对水平；聊天式视觉理解质量突出。LLaVA-1.5 用简单改动（MLP 投影 + 学术任务数据）在 11 个基准上进一步走强。
 
 ### Strengths and Limitations
@@ -306,7 +307,7 @@ DINOv2 已证明 SSL 能出好特征，但**训练一拉长、稠密特征图就
 
 ### Takeaways
 
-一句话：**GPT-4 造数据 + 投影层接 LLM = 开源 VLM 的起手式。** 视觉塔来自 [CLIP](#clip)，范式被 [Qwen-VL](#qwen-vl)、[InternVL](#internvl) 继承并工业化。
+LLaVA 展示了一个简洁且可复现的配方：用语言模型辅助生成视觉指令数据，以投影层连接 CLIP 视觉特征和 LLM，再进行分阶段训练。Qwen-VL 与 InternVL 也采用视觉塔—连接模块—LLM 的组合，但数据、结构和训练配方并不相同。
 
 ::::paper{tone="qwenvl"}
 
@@ -315,10 +316,10 @@ DINOv2 已证明 SSL 能出好特征，但**训练一拉长、稠密特征图就
 **Qwen-VL: A Versatile Vision-Language Model for Understanding, Localization, Text Reading, and Beyond**
 
 :::note[一句话]
-在 Qwen LLM 上加视觉感知能力的工业级 VLM：用**位置感知视觉适配器**把图像特征压成定长 token 接入语言模型，并通过**坐标 token** 支持空间 grounding 与图内 OCR，中英双语能力突出。
+Qwen-VL 在 Qwen LLM 上加入视觉编码器与位置感知适配器，将图像特征压缩为固定数量的视觉 token，并通过坐标 token 支持 grounding 与 OCR。论文在中英文图文理解、VQA、定位与 OCR 基准上进行评测。
 :::
 
-**年份 / Venue** arXiv 2023（2308.12966）｜ **机构** 阿里巴巴（通义实验室）｜ **方向** 工业 VLM / grounding / OCR ｜ **基准** 图文理解、VQA、grounding、OCR
+**年份 / Venue** arXiv 2023（2308.12966）｜ **机构** 阿里巴巴（通义实验室）｜ **方向** VLM / grounding / OCR ｜ **基准** 图文理解、VQA、grounding、OCR
 
 **材料** [Paper](https://arxiv.org/abs/2308.12966) · [Code](https://github.com/QwenLM/Qwen-VL)
 
@@ -349,7 +350,7 @@ DINOv2 已证明 SSL 能出好特征，但**训练一拉长、稠密特征图就
 
 ### Experiments
 
-- 在同规模模型中，于大量**视觉中心基准**（captioning、VQA、grounding、OCR）取得**零样本 / 少样本 SOTA**（原文结论，分数定性描述）。
+- 论文在其选取的 captioning、VQA、grounding 与 OCR 基准上报告了有竞争力的 zero-shot/few-shot 结果；“SOTA”只适用于论文发布时列出的模型、数据和评测设置。
 - 细粒度定位与图内文字读取是其相对同类的亮点。
 
 ### Strengths and Limitations
@@ -360,7 +361,7 @@ DINOv2 已证明 SSL 能出好特征，但**训练一拉长、稠密特征图就
 
 ### Takeaways
 
-一句话：**适配器压 token + 坐标 token 做定位 = 能读字、会指物的工业 VLM。** 与 [LLaVA](#llava) 同源但更重定位 / OCR，是机器人高层语义 + 空间引用的实用骨干。
+Qwen-VL 的位置感知适配器和坐标 token 使其同时处理生成、OCR 与定位任务。它可作为机器人高层语义模块的候选骨干，但是否适用于具体机器人仍需考虑延迟、视角变化和目标领域数据。
 
 ::::paper{tone="internvl"}
 
@@ -369,7 +370,7 @@ DINOv2 已证明 SSL 能出好特征，但**训练一拉长、稠密特征图就
 **InternVL: Scaling up Vision Foundation Models and Aligning for Generic Visual-Linguistic Tasks**
 
 :::note[一句话]
-把视觉基础模型**扩到 60 亿参数（InternViT-6B）**并渐进式与 LLM 对齐的开源 VLM 家族；1.5 起用「ViT–MLP–LLM」结构配**动态高分辨率**切图，在文档 / 图表 / OCR 等高清场景逼近商业模型。
+InternVL 使用 InternViT-6B 等视觉编码器，并通过渐进对齐连接语言模型；1.5 版本采用 ViT–MLP–LLM 结构与动态高分辨率切图，重点评测文档、图表和 OCR 等场景。
 :::
 
 **年份 / Venue** CVPR 2024（InternVL 1.0，arXiv 2312.14238）｜ **机构** 上海 AI Lab / OpenGVLab 等 ｜ **方向** 开源大 VLM / 视觉编码器 scaling ｜ **基准** 32 个视觉–语言任务
@@ -404,7 +405,7 @@ VLM 的语言侧动辄百亿参数，**视觉侧却常停在 CLIP 级（几亿�
 ### Experiments
 
 - 在 **32 个视觉–语言基准**上有竞争力（原文），覆盖图像识别、零样本分类、视频–文本检索、多模态对话。
-- 1.5 起在高分辨率 OCR / 文档理解上**逼近 GPT-4V 等商业模型**（结论性，分数定性描述）。
+- 论文在若干高分辨率 OCR 和文档理解基准上报告了接近当时 GPT-4V 的结果；该比较受 GPT-4V 版本、提示词、评测时间和闭源接口变化影响，应按原表逐项阅读。
 
 ### Strengths and Limitations
 
@@ -452,7 +453,7 @@ VLM 的语言侧动辄百亿参数，**视觉侧却常停在 CLIP 级（几亿�
 ### Method
 
 - **神经隐式物体表征**：用类 NeRF 的表征做**新视角合成**，从而把 model-free（参考图）和 model-based（CAD）统一到同一套「渲染–比较」框架。
-- **大规模合成训练**：LLM 辅助 + 扩散生成纹理，造大规模多样合成数据，弥补真实标注稀缺。
+- **大规模合成训练**：论文使用 LLM 辅助的数据生成与大规模合成训练来缓解真实 3D 标注稀缺；正文不在缺少原文依据时进一步指定为“扩散生成纹理”。
 - **render-and-compare + 位姿选择**：先生成一批位姿假设并 refine，再用一个**对比学习的排序网络**从中选最优（本页配图的两大后段）。RGBD 输入。
 
 ### Experiments
@@ -507,11 +508,11 @@ SAM 1/2 靠**点 / 框 / 掩码**这类几何提示分割「某个东西」，�
 
 - **PCS 任务**：输入概念提示（名词短语 / 图像样例 / 组合），输出该概念**所有实例**的掩码，视频中还要保持实例身份。
 - **共享骨干的检测器 + 跟踪器（本页配图）**：图像级 **Detector**（开放词汇检测 + 分割）与基于 **Memory Bank** 的视频 **Tracker**（承自 SAM 2）共享单一 backbone；用 **presence head** 把「识别（有没有这个概念）」与「定位（在哪）」解耦。
-- **SA-Co 数据与基准**：配套发布含 **400 万独特概念标签**（含 hard negatives）的数据集与评测基准。
+- **SA-Co 数据与基准**：配套数据与基准包含大规模概念标注和 hard negatives。概念词表、标注实例与独特标签是不同统计口径，具体数量按论文数据章节定义，不在正文中混写。
 
 ### Experiments
 
-- 在图像与视频 PCS 上，相较现有系统**把精度翻倍**（原文头条结论，予以保留）。
+- 论文在其图像和视频 PCS 基准上报告了相对所选既有系统的显著提升；正文应结合具体 metric 与 baseline 阅读，不将“翻倍”外推到所有分割任务。
 
 ### Strengths and Limitations
 
@@ -535,7 +536,7 @@ SAM 1/2 靠**点 / 框 / 掩码**这类几何提示分割「某个东西」，�
 
 **年份 / Venue** arXiv 2025（2511.16624，2025-11-20）｜ **机构** Meta AI（SAM 3D Team；含 Dollár、Gkioxari、Malik 等）｜ **方向** 单图到 3D 重建 ｜ **基准** 真实物体 / 场景人类偏好评测
 
-**材料** [Paper](https://arxiv.org/abs/2511.16624) · [SAM 3D Body](https://arxiv.org/abs/2602.15989) · [Code](https://github.com/facebookresearch/sam-3d-objects)
+**材料** [SAM 3D Objects Paper](https://arxiv.org/abs/2511.16624) · [Objects Code](https://github.com/facebookresearch/sam-3d-objects) · 独立工作：[SAM 3D Body](https://arxiv.org/abs/2602.15989)
 
 ::::
 
@@ -563,7 +564,7 @@ SAM 1/2 靠**点 / 框 / 掩码**这类几何提示分割「某个东西」，�
 
 ### Experiments
 
-- 在真实物体 / 场景的**人类偏好测试中，相对近期方法达到至少 5:1 胜率**（原文头条结论，予以保留）。
+- 在论文定义的真实物体/场景人类偏好测试中，作者报告相对所选近期方法至少 5:1 的偏好比；该指标是主观成对评测，不等同于几何误差或真实机器人成功率。
 
 ### Strengths and Limitations
 
@@ -584,7 +585,7 @@ SAM 1/2 靠**点 / 框 / 掩码**这类几何提示分割「某个东西」，�
 | DINOv2 | 2023 | 纯图像 | 判别式自蒸馏 + 数据管线 | DINO+iBOT | 精选数据学强稠密特征 |
 | DINOv3 | 2025 | 纯图像 | SSL scaling + Gram anchoring | 自蒸馏 | 大规模下保住稠密特征 |
 | LLaVA | 2023 | 图 + 指令 | 视觉塔 + 投影 + LLM | 指令微调 | GPT-4 造数据的开源 VLM 模板 |
-| Qwen-VL | 2023 | 图 + 文 + 框 | 视觉适配器 + 坐标 token | 三阶段训练 | 带 grounding/OCR 的工业 VLM |
+| Qwen-VL | 2023 | 图 + 文 + 框 | 视觉适配器 + 坐标 token | 三阶段训练 | 带 grounding/OCR 的多语种 VLM |
 | InternVL | 2024 | 图 + 文 | InternViT-6B + 动态高分辨率 | 渐进对齐 | 大视觉塔的开源 VLM 系列 |
 | FoundationPose | 2024 | RGBD + CAD/参考图 | 神经物体建模 + render-compare | 合成数据 + 排序 | 新物体 6D 位姿免微调 |
 | SAM3 | 2025 | 图/视频 + 概念提示 | Detector + Tracker + Memory | PCS | 可提示概念分割 |

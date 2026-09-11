@@ -1,8 +1,9 @@
 ---
 title: "Paper Notes: Base Models"
 published: 2026-02-12
-description: 基础模型精读——VAE、Normalizing Flows、Transformer、ViT、Diffusion (DDPM)、DiT、Flow Matching、Decision Transformer。从潜变量生成与可逆密度，到通用注意力骨干，再到连续时间生成与序列决策的八块基石。
-image: ''
+updated: 2026-09-11
+description: 比较 VAE、Normalizing Flows、Transformer、ViT、DDPM、DiT、Flow Matching 与 Decision Transformer 的目标函数、结构假设、实验结论和适用边界。
+image: '/paper-note/Base/Transformer/pipeline.png'
 tags: [Paper Notes, Machine Learning, Foundation Models]
 category: Paper Notes
 draft: false
@@ -14,7 +15,7 @@ draft: false
 
 八块积木按四条线索组织（顺序从早到近、从简到繁）：
 
-- **生成模型的两条早期路线** — [VAE](#vae)（潜变量 + 变分下界，近似似然）与 [NFs](#nfs)（可逆变换 + 精确似然）。它们定义了「怎么学一个能采样的分布」。
+- **生成模型的两条早期路线** — [VAE](#vae) 用潜变量与变分下界近似优化边缘似然；[NFs](#nfs) 用可逆变换和变量替换公式计算变换后变量的密度。二者都能学习可采样分布，但约束与适用方式不同。
 - **通用注意力骨干** — [Transformer](#transformer)（自注意力取代循环/卷积）→ [ViT](#vit)（把同一套骨干搬到视觉 patch）。后续几乎所有大模型都长在这上面。
 - **连续生成的现代主线** — [Diffusion](#diffusion)（前向加噪 / 反向去噪）→ [DiT](#dit)（把扩散去噪网络从 U-Net 换成 Transformer）→ [Flow](#flow)（流匹配，免仿真地学噪声到数据的向量场）。
 - **序列决策** — [DT](#dt)（把 Transformer 当作条件序列模型来做 RL）。
@@ -26,7 +27,7 @@ draft: false
 | 简称 | 年份 / Venue | 主题 | 一句话定位 |
 |:--|:--|:--|:--|
 | [VAE](#vae) | ICLR 2014 | 潜变量生成 | 变分下界 + 重参数化，摊销推断学生成模型 |
-| [NFs](#nfs) | ICML 2015 | 可逆密度 | 可逆变换堆叠 + 变量替换，精确似然 |
+| [NFs](#nfs) | ICML 2015 | 可逆密度 | 可逆变换堆叠 + 变量替换，可计算变换后密度 |
 | [Transformer](#transformer) | NeurIPS 2017 | 序列骨干 | 自注意力取代 RNN/CNN，可并行、建长程依赖 |
 | [ViT](#vit) | ICLR 2021 | 视觉骨干 | 图像切 patch 当 token，纯 Transformer 做识别 |
 | [Diffusion](#diffusion) | NeurIPS 2020 | 扩散生成 | 前向加噪 / 反向去噪，预测噪声即训练目标 |
@@ -46,7 +47,7 @@ draft: false
 
 **年份 / Venue** ICLR 2014（arXiv 1312.6114, 2013）｜ **机构** Universiteit van Amsterdam（Kingma & Welling）｜ **方向** 潜变量生成 / 变分推断 ｜ **基准** MNIST, Frey Faces
 
-**材料** [Paper](https://arxiv.org/abs/1312.6114) · [Kingma thesis / 教程实现为准]
+**材料** [Paper](https://arxiv.org/abs/1312.6114)
 
 ::::
 
@@ -89,11 +90,11 @@ $$
 
 **Strengths**：原理清晰、训练稳定、推断摊销后**采样与编码都是一次前向**；潜空间连续可插值，是表示学习与条件生成的通用底座。
 
-**局限**：高斯后验/似然假设导致**样本偏模糊**；易出现**后验坍缩（posterior collapse）**（解码器过强时忽略 $z$）；下界与真实似然间有间隙。NFs、扩散、VQ-VAE 分别从「更灵活的后验 / 更强的生成过程 / 离散潜码」方向改进。
+**局限**：常见高斯观测模型可能产生偏平滑样本；解码器过强时可能忽略 $z$，形成 posterior collapse；ELBO 与真实对数边缘似然之间还存在 variational gap。Normalizing flow 可增强变分后验的表达力，VQ-VAE 使用离散潜码，扩散模型则采用不同的生成目标；它们不是针对同一个失败模式的统一修补。
 
 ### Takeaways
 
-VAE 给出「用神经网络 + 变分下界学潜变量生成模型」的范式。记住三个词：**ELBO、摊销推断、重参数化**。它的模糊样本与后验坍缩，正是 [NFs](#nfs)（灵活密度）与 [Diffusion](#diffusion)（渐进生成）要解决的问题；它的潜空间则被潜扩散 / [DiT](#dit) 直接复用。
+VAE 给出用神经网络与变分下界学习潜变量模型的范式，核心概念是 **ELBO、摊销推断与重参数化**。Normalizing flow 可用于构造更灵活的后验，扩散模型提供另一类渐进生成目标；潜扩散则复用预训练自编码器的潜空间。几条路线有关联，但不能都归结为“解决 VAE 后验坍缩”。
 
 ::::paper{tone="nfs"}
 
@@ -102,7 +103,7 @@ VAE 给出「用神经网络 + 变分下界学潜变量生成模型」的范式�
 **Variational Inference with Normalizing Flows**
 
 :::note[一句话]
-把一个简单分布（如高斯）经过一串**可逆变换**逐步「拉扯」成复杂分布，用**变量替换公式**精确追踪密度变化。既可当 VAE 的**更灵活后验**，也可作为**精确似然**生成模型的一支主线。
+把简单分布经过一串可逆变换映射为复杂分布，并用变量替换公式计算变换后变量的密度。Flow 可以作为 VAE 的灵活近似后验，也可以直接构造显式密度模型；前一种情况下，后验密度可计算并不意味着潜变量模型的边缘似然自动变为闭式可解。
 :::
 
 **年份 / Venue** ICML 2015（arXiv 1505.05770）｜ **机构** Google DeepMind（Rezende & Mohamed）｜ **方向** 可逆密度 / 变分推断 ｜ **基准** MNIST, CIFAR（作为 VAE 后验）
@@ -146,13 +147,13 @@ $$
 
 ### Strengths and Limitations
 
-**Strengths**：**精确似然**（无下界间隙）、密度灵活、采样与密度评估都直接。
+**Strengths**：对于独立的 normalizing-flow 密度模型，变量替换给出可计算的精确对数密度；密度表达灵活，采样与密度评估均可直接执行。作为 VAE 后验时，整体模型仍通常通过 ELBO 训练。
 
 **局限**：为保证雅可比行列式可算，架构**受强约束**（planar/radial 单步表达力有限，需堆很多层）；后续 RealNVP、IAF、Glow 用耦合层 / 自回归结构增强表达力，但可逆性约束始终是流模型的根本张力。
 
 ### Takeaways
 
-NFs 代表生成建模的**「可逆 + 精确似然」**一派，与 VAE 的「下界近似」、Diffusion 的「渐进变换」形成三足。它的核心公式——**变量替换 + 雅可比行列式**——也是理解连续归一化流（CNF）与 [Flow](#flow) 匹配的入口。
+NFs 以可逆变换和可计算密度为核心，与 VAE 的变分下界、Diffusion 的渐进去噪形成不同建模选择。变量替换与 Jacobian 行列式也是理解连续归一化流（CNF）的入口；Flow Matching 则进一步直接学习连续向量场。
 
 ::::paper{tone="transformer"}
 
@@ -209,7 +210,7 @@ $$
 ### Experiments
 
 - **基准**：WMT'14 英德 / 英法机器翻译。
-- **结果（原文明确报告）**：大模型在 **EN-DE 达 28.4 BLEU、EN-FR 达 41.8 BLEU**，均为当时新 SOTA，且训练成本显著低于此前最好的循环 / 卷积模型。
+- **论文结果**：大模型在 **EN-DE 达 28.4 BLEU、EN-FR 达 41.8 BLEU**，均为当时该评测设置下的领先结果；论文同时报告其训练成本低于所比较的循环与卷积模型。
 
 ### Strengths and Limitations
 
@@ -275,7 +276,7 @@ CNN 长期垄断视觉，其**局部性 + 平移等变**是很强的归纳偏置
 
 ### Takeaways
 
-ViT 证明「Transformer 是通用骨干」不止于文本。它与 [Transformer](#transformer) 是同一架构在两个模态的化身，也直接连向 [DiT](#dit)（同样先 patchify 再上 Transformer，只是目标从分类换成扩散去噪）。应用侧可对照 [Vision Foundation Models](/blog/posts/paper-notes-vision-foundation-models/)。
+ViT 表明标准 Transformer 在足够数据和正则化下也能用于图像分类。它把图像切成 patch token，再沿用序列 Transformer；[DiT](#dit) 采用相似 token 化思路，但优化目标是扩散去噪而不是分类。应用侧可对照 [Vision Foundation Models](/blog/posts/paper-notes-vision-foundation-models/)。
 
 ::::paper{tone="diffusion"}
 
@@ -330,7 +331,7 @@ $$
 ### Experiments
 
 - **基准**：CIFAR-10、LSUN、CelebA-HQ 等无条件 / 类条件图像生成。
-- **结果（原文明确报告）**：CIFAR-10 无条件生成达 **FID 3.17、Inception 9.46**，为当时该设定下的领先结果；高分辨率 LSUN 样本质量与 ProgressiveGAN 相当。
+- **论文结果**：CIFAR-10 无条件生成达 **FID 3.17、Inception Score 9.46**，为当时该设定下的领先结果；论文报告高分辨率 LSUN 样本质量与 ProgressiveGAN 相当。
 
 ### Strengths and Limitations
 
@@ -349,7 +350,7 @@ DDPM 把「加噪—去噪」变成一个可训练、可扩展的生成范式。
 **Scalable Diffusion Models with Transformers**
 
 :::note[一句话]
-把扩散模型里去噪网络的 **U-Net 换成 Transformer**：在 VAE 潜空间里把 latent 切 patch，用带 **adaLN-Zero** 条件注入的 Transformer 块做去噪。核心发现：**去噪网络的算力（Gflops）越大，生成质量越好**——扩散终于有了可预测的扩展律。
+DiT 用 Transformer 替换扩散模型常用的 U-Net 去噪器：在 VAE 潜空间中将 latent 划分为 patch，并用带 **adaLN-Zero** 条件注入的 Transformer 块预测去噪目标。论文在所测试模型族中观察到：增加去噪网络计算量（Gflops）与 FID 改善存在较稳定的相关趋势。
 :::
 
 **年份 / Venue** ICCV 2023（arXiv 2212.09748）｜ **机构** UC Berkeley / New York University（Peebles & Xie）｜ **方向** 扩散骨干 / 可扩展生成 ｜ **基准** ImageNet 256×256 / 512×512 类条件生成
@@ -385,7 +386,7 @@ DDPM 把「加噪—去噪」变成一个可训练、可扩展的生成范式。
 ### Experiments
 
 - **基准**：ImageNet 类条件生成 256×256 与 512×512。
-- **结果（原文明确报告）**：最大模型 **DiT-XL/2 在 256×256 达 FID 2.27**，刷新当时该基准；并观察到 **FID 随去噪网络 Gflops 单调下降**的清晰扩展规律。
+- **论文结果**：最大模型 **DiT-XL/2 在 256×256 达 FID 2.27**，为当时该基准的领先结果；在论文测试的模型配置中，FID 随去噪网络 Gflops 增加而下降。
 
 ### Strengths and Limitations
 
@@ -454,7 +455,7 @@ $$
 
 ### Takeaways
 
-Flow Matching 把 [Diffusion](#diffusion) 的「学一个渐进变换」提炼成「**回归一个向量场**」，并用 OT 路径解决采样步数问题。它与 [NFs](#nfs) 一脉相承（都是连续变量输运），是当前连续生成与机器人 action 生成的当红范式。
+Flow Matching 通过回归条件概率路径对应的向量场来训练连续归一化流；扩散概率路径是其可选路径族之一。Optimal-Transport displacement interpolation 在原论文实验中带来更高效的训练和采样，但推理仍需数值求解 ODE，步数优势取决于路径、模型和求解器。[原论文](https://arxiv.org/abs/2210.02747)
 
 ::::paper{tone="dt"}
 
@@ -499,7 +500,7 @@ Flow Matching 把 [Diffusion](#diffusion) 的「学一个渐进变换」提炼�
 ### Experiments
 
 - **基准**：Atari（离线）、D4RL（连续控制）、Key-to-Door（长程信用分配）。
-- **结果**：在多数任务上匹配或超过 [CQL](/blog/posts/paper-notes-reinforcement-learning-2/#cql) 等专门离线 RL 方法，尤其在需要长程信用分配的任务上占优。**具体分数此处定性描述，不引用精确数值。**
+- **结果**：原论文在 Atari、OpenAI Gym 和 Key-to-Door 的指定离线数据设置中，报告了与若干 model-free offline RL 基线相当或更好的结果。不同任务上的相对排名并不一致，因此不把这些实验概括为普遍的长程信用分配优势。[原论文](https://arxiv.org/abs/2106.01345)
 
 ### Strengths and Limitations
 
